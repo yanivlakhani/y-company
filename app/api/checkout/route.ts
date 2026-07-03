@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-// TODO: Stripe webhook to decrement stock on checkout.session.completed.
 // TODO: Apple Pay domain verification on the deployed domain.
 
 type CheckoutItem = {
@@ -132,6 +131,14 @@ export async function POST(request: Request) {
       mode: "payment",
       payment_method_types: ["card"],
       line_items: lineItems,
+      metadata: {
+        items: JSON.stringify(
+          items.map(({ id, qty }) => ({
+            id,
+            qty,
+          })),
+        ),
+      },
       // TODO: re-add shipping_options (e.g. next-day local courier) when shipping is enabled.
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}${cancelPath}`,
