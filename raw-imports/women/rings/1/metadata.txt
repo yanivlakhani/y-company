@@ -1,0 +1,6 @@
+name thin stack ring
+material 316l stainless steel
+properties slim profile
+description a slim band designed to stack with others
+price 59
+stock 60

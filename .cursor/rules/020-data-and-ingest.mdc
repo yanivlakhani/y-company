@@ -1,0 +1,71 @@
+---
+description: Products schema, Supabase storage, and the ingest script rules (parsing, idempotency, baseline properties, test fixture).
+globs: scripts/**,supabase/**,**/migrations/**,lib/supabase/**
+alwaysApply: false
+---
+
+# data model and ingestion
+
+## Schema (exact)
+
+```sql
+create table products (
+  id             uuid primary key default gen_random_uuid(),
+  gender         text not null check (gender in ('men','women')),
+  accessory_type text not null,
+  folder_index   int  not null,
+  slug           text unique,
+  name           text not null,
+  material       text,
+  properties     text[] not null default '{}',
+  description    text,
+  price_fils     int  not null check (price_fils >= 0),
+  stock          int  not null default 0 check (stock >= 0),
+  thumb_url      text,
+  lookbook_url   text,
+  created_at     timestamptz default now(),
+  unique (gender, accessory_type, folder_index)
+);
+```
+
+- `properties` is a real Postgres text array, not a comma string.
+- Route product pages by `id`. `slug` is populated from the name (kebab-case) but not routed on yet.
+- Create a public Storage bucket named `products`.
+
+## Source tree
+
+`raw-imports/[gender]/[accessory_type]/[numbered_index_folder]/`
+- `[gender]` is `men` or `women`.
+- `[accessory_type]` is a lowercase type folder. The set of types is NOT mirrored across genders; some exist under one gender only (e.g. `anklets` under `women` only). Discover types by reading whatever folders exist per gender. Never hardcode a shared type list, never assume symmetry.
+- `[numbered_index_folder]` is `1`, `2`, `3`, ... per type.
+- Each folder holds exactly `thumb.png`, `lookbook.png`, `metadata.txt`.
+
+## metadata.txt parse rule (exact)
+
+- One key per line. Split each line on the FIRST whitespace only: first token is the key, the entire remainder is the value. Do NOT `.split(' ')` naively.
+- Keys: `name`, `material`, `properties`, `description`, `price`, `stock`. No colons.
+- Trim values, skip blank lines. `price` and `stock` parse as integers.
+- `price` is whole AED and MUST be multiplied by 100 to get `price_fils` (`price 129` -> `12900`).
+
+## Baseline properties
+
+Always ensure `waterproof` and `sweat-resistant` are present in `properties` as a deduplicated union with whatever the file lists. If the `properties` line is missing, `properties = ['waterproof','sweat-resistant']`. Never duplicate an entry.
+
+## Idempotency and storage
+
+- Upload to deterministic paths `{gender}/{accessory_type}/{folder_index}/thumb.png` and `.../lookbook.png` in the `products` bucket with `{ upsert: true }`. Store the public URLs in `thumb_url`/`lookbook_url`.
+- Row write: `.upsert(row, { onConflict: 'gender,accessory_type,folder_index' })`. Log each row as inserted vs updated. Fail loudly with the folder path if a folder is missing any of the three required files.
+- Script runs via `tsx scripts/ingest.ts`, loading env from `.env.local`. Never requires manual DB entry.
+
+## Test fixture
+
+`raw-imports/men/bracelets/1/metadata.txt`:
+```
+name matte black bracelet
+material 316l stainless steel and matte volcanic obsidian
+properties custom steel clasp
+description a heavy industrial link stack engineered for daily wear
+price 129
+stock 45
+```
+Expected row: `name = "matte black bracelet"`, `price_fils = 12900`, `stock = 45`, `properties = ['custom steel clasp','waterproof','sweat-resistant']`, `gender = 'men'`, `accessory_type = 'bracelets'`, `folder_index = 1`, with `thumb_url`/`lookbook_url` into the `products` bucket.

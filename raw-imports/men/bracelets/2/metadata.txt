@@ -1,0 +1,6 @@
+name chain link cuff
+material 316l stainless steel
+properties magnetic clasp
+description a rigid cuff built from interlocked steel segments
+price 149
+stock 22

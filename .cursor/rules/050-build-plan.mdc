@@ -1,0 +1,45 @@
+---
+description: How to sequence the y company build and the acceptance checks. Reference this before starting a build or a new phase.
+alwaysApply: false
+---
+
+# build plan and acceptance
+
+Do NOT build everything at once. Work through these steps in order, and after each, verify before moving on.
+
+## Build order
+
+1. Project init, Tailwind, env scaffolding, both Supabase client files (`lib/supabase/client.ts` browser, `lib/supabase/server.ts` async server).
+2. `lib/mock-products.ts` + `public/placeholders/` and the Supabase-first / mock-fallback data functions, so the site is previewable with no backend.
+3. Landing split (correct 47/53 math + mobile stack).
+4. `/men` + `/women` catalog with sticky model frame + overlay on/off, rendering from mock data at this stage.
+5. `/product/[id]`.
+6. Sticky footer with legal + WhatsApp anchor. (Now `npm run dev` shows the full site on mock data.)
+7. SQL migration + `products` bucket.
+8. `scripts/ingest.ts`; confirm it populates rows + images idempotently against the test fixture. Real rows now supersede mock automatically.
+9. Checkout route (disabled/preview state until `STRIPE_SECRET_KEY` is set).
+
+## Env vars
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=   # publishable, client-safe
+SUPABASE_SECRET_KEY=             # secret, server + ingest ONLY
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_BASE_URL=
+```
+
+## Acceptance / do-not
+
+- Running ingest twice = same row count, images overwritten, no errors.
+- A hand-edited checkout request cannot change the charged amount.
+- No `stock` value ever reaches the client.
+- Accessory types are read from folders per gender; a women-only type like `anklets` appears on `/women`, never `/men`.
+- Hovering off a catalog card returns the model to bare (no overlay stuck); only one overlay shows at a time.
+- Mock content lives only in `lib/mock-products.ts` and `public/placeholders/`; deleting both fully removes it, and real rows render instead of mock with no code change.
+- No page uses border-radius, gradients, or blur. Product names/headers/prices render lowercase.
+- No hover-only interaction is the sole path on mobile.
+- No login, no About/Contact pages, no header bar.
+- Project builds with `next build` alone (no Vite, no custom bundler). Supabase storage hostname is whitelisted in `next.config` `images.remotePatterns`. Server-only keys are not `NEXT_PUBLIC_`. `.env*` is gitignored. `scripts/ingest.ts` is not part of the build.
+
+When asked to build a step, state which rule files you are applying at the top of your response.

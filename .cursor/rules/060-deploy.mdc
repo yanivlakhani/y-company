@@ -1,0 +1,27 @@
+---
+description: Vercel deployment rules for this Next.js app - env vars, next/image config, runtimes, secrets hygiene, ingest exclusion.
+globs: next.config.*,package.json,vercel.json,.env*,app/api/**
+alwaysApply: false
+---
+
+# deployment (Vercel, Next.js native)
+
+This is a Next.js 15 app deployed on Vercel with zero config via GitHub push. NOT a Vite project. Do not add Vite or any alternate bundler. Build command stays `next build`.
+
+## Environment variables
+- All vars must exist in BOTH `.env.local` (local) and the Vercel project dashboard (deployed). The human sets the Vercel ones.
+- Only browser-safe values may use the `NEXT_PUBLIC_` prefix. `SUPABASE_SECRET_KEY` and `STRIPE_SECRET_KEY` must NEVER be `NEXT_PUBLIC_`; they are server-only.
+- `NEXT_PUBLIC_BASE_URL` is used for Stripe success/cancel URLs. Locally it is `http://localhost:3000`; on Vercel set it to the deployed URL (or derive from `VERCEL_URL` server-side). Do not hardcode a localhost URL into deployed code paths.
+
+## Secrets hygiene
+- `.gitignore` MUST include `.env*` (except a committed `.env.example` with empty values). Never commit real keys; the repo is pushed to GitHub.
+
+## next/image
+- Supabase Storage public URLs are external hosts. Add the Supabase storage hostname to `next.config` under `images.remotePatterns`, or product/thumbnail images will fail to load both locally and on Vercel.
+- Placeholder images under `public/` need no config.
+
+## Route runtimes
+- The Stripe checkout route pins `export const runtime = 'nodejs'` (Stripe's Node library is not Edge-compatible). Any future Stripe webhook route is also `nodejs` and needs the raw request body.
+
+## Ingest is local-only
+- `scripts/ingest.ts` runs on the developer machine (`tsx scripts/ingest.ts`) to populate Supabase. It is NOT part of the Vercel build, must not be invoked by the build command, and the app must not import it. It uses the secret key, which only exists in the local env, never in the deployed bundle.

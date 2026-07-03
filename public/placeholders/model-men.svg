@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800" viewBox="0 0 400 800">
+  <rect width="400" height="800" fill="#0c0c0e"/>
+  <rect x="140" y="80" width="120" height="120" fill="none" stroke="#3f3f46" stroke-width="1"/>
+  <rect x="120" y="220" width="160" height="280" fill="none" stroke="#3f3f46" stroke-width="1"/>
+  <rect x="100" y="520" width="80" height="220" fill="none" stroke="#3f3f46" stroke-width="1"/>
+  <rect x="220" y="520" width="80" height="220" fill="none" stroke="#3f3f46" stroke-width="1"/>
+  <text x="200" y="760" fill="#71717a" font-family="Arial, sans-serif" font-size="11" letter-spacing="0.3em" text-anchor="middle">model  men</text>
+</svg>

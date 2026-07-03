@@ -1,0 +1,34 @@
+---
+description: y company storefront - project identity, non-negotiable invariants, and stack. Always loaded.
+alwaysApply: true
+---
+
+# y company — core
+
+Premium minimalist UAE accessories storefront. Next.js 15 App Router, TypeScript, Tailwind, Supabase (Postgres + Storage), Stripe. No auth in v1, anonymous checkout only. Do not invent extra pages, fields, or marketing filler. Do not use generic starter templates.
+
+## NON-NEGOTIABLE INVARIANTS (never violate)
+
+1. Money is stored as integer fils, never floats. Column is `price_fils`. 1 AED = 100 fils, so `129` AED is stored as `12900`. Display uses `price_fils / 100`. Stripe receives `price_fils` directly, no conversion.
+2. The checkout API never trusts a price, amount, or currency from the browser. The client sends only product `id` (and quantity). The route re-fetches `price_fils` and `stock` from Supabase server-side and builds the Stripe amount from the DB row.
+3. Ingestion is idempotent. Running the ingest script twice must not duplicate rows or error on existing images. Upsert on a unique natural key, `upsert: true` on storage uploads.
+4. The Supabase secret/service key is server-only. It appears only in the ingest script env and server route handlers, never in a `NEXT_PUBLIC_` var, never shipped to the client.
+5. Stock is never exposed publicly. Do not select `stock` in any client-facing query. It exists only for server-side checkout validation.
+
+## Stack pins
+
+- `@supabase/ssr` + `@supabase/supabase-js`. Do NOT use `@supabase/auth-helpers` (deprecated).
+- Next 15: `cookies()` is async. The Supabase server client factory MUST be `async` and `await cookies()`.
+- Stripe via the native `stripe` Node library, Checkout Sessions (hosted redirect), `currency: 'aed'`.
+
+## Prerequisites (human-supplied, do not fabricate)
+
+Supabase project, Stripe account, and real image assets are provided by the human. Do not generate placeholder keys. Placeholder images and mock data are allowed ONLY per the preview-mock rule, confined to `lib/mock-products.ts` and `public/placeholders/`.
+
+## Deployment
+
+Hosted on Vercel, deployed natively as a Next.js app (Cursor -> GitHub -> Vercel auto-build on push). This is NOT a Vite project. Do NOT introduce Vite, or any alternate bundler/build tool. The build command is `next build` and nothing else. Details in the deploy rule.
+
+## Other rules in this project
+
+Frontend style/anti-slop, data model + ingest, checkout, preview/mock, and the build plan live in separate rule files. Follow the build-plan rule for sequencing; do not build all steps at once.

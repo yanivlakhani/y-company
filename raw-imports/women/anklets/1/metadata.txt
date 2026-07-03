@@ -1,0 +1,6 @@
+name fine chain anklet
+material 316l stainless steel
+properties minimal clasp
+description a minimal chain anklet for daily wear
+price 79
+stock 38

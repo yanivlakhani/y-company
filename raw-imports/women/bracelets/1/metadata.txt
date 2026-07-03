@@ -1,0 +1,6 @@
+name pearl thread bracelet
+material freshwater pearl and silk thread
+properties adjustable tie
+description a single pearl suspended on a silk thread band
+price 69
+stock 50

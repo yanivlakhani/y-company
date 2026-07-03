@@ -1,0 +1,18 @@
+---
+description: Stripe checkout route rules and the server-side amount security invariant.
+globs: app/api/**,**/checkout/**,**/*stripe*
+alwaysApply: false
+---
+
+# checkout — `app/api/checkout/route.ts`
+
+- Pin the Node runtime: `export const runtime = 'nodejs'`. The Stripe Node library does not run on Vercel's Edge runtime.
+
+- Accept only `{ items: [{ id, qty }] }` (or a single `{ id }`). Reject anything else.
+- For each `id`, fetch `price_fils` and `stock` from Supabase using the server/secret key. Reject if any item is out of stock. Build Stripe `line_items` with `unit_amount = price_fils`, `currency: 'aed'`.
+- Create a Stripe Checkout Session: `mode: 'payment'`, card + Apple Pay enabled, one `shipping_options` entry for next-day local courier, `success_url`/`cancel_url` from `NEXT_PUBLIC_BASE_URL`. Return the session URL.
+- The server computes every amount. NEVER read price/amount/currency from the request body. A tampered request must never change what is charged.
+- `price_fils` goes to Stripe with zero conversion (it is already the smallest unit, fils).
+- Add a `// TODO` for a Stripe webhook to decrement `stock` on `checkout.session.completed` (do not decrement optimistically before payment).
+- Apple Pay needs domain verification on the deployed domain: leave a `// TODO` for it.
+- If `STRIPE_SECRET_KEY` is unset (preview mode), do not create a live session; the checkout button shows a "preview mode, checkout disabled" state instead of charging.

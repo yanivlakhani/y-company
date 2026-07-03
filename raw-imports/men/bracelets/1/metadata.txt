@@ -1,0 +1,6 @@
+name matte black bracelet
+material 316l stainless steel and matte volcanic obsidian
+properties custom steel clasp
+description a heavy industrial link stack engineered for daily wear
+price 129
+stock 45

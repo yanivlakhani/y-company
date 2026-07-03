@@ -1,0 +1,51 @@
+---
+description: Anti-slop visual rules, design tokens, and route interaction behavior for all UI work.
+globs: app/**/*.tsx,components/**/*.tsx,**/*.css,tailwind.config.*
+alwaysApply: false
+---
+
+# frontend — style and interaction
+
+## ANTI-SLOP: do not ship a vibe-coded look (highest visual priority)
+
+Must read as human-made: editorial, restrained, intentional. Never a generated template. Every line is a hard rule. If a choice would look at home on a generic AI-generated SaaS landing page, do not make it.
+
+Banned visuals:
+- Gradients of any kind. No `bg-gradient-*`, no gradient text (`bg-clip-text text-transparent`), no mesh gradients, no colored glows. Flat fills only.
+- Rounded corners. Everything `rounded-none`. No `rounded-xl`/`rounded-2xl`/`rounded-full`, no pill buttons or pill badges.
+- Shadows and glows. No `shadow-*`, no `drop-shadow`, no neon/colored glow.
+- Glassmorphism. No `backdrop-blur`, no translucent frosted panels.
+- Decorative background blobs, floating orbs, blurred circles, particles, animated meshes.
+- Emoji anywhere in the UI.
+- Startup-landing furniture: pill badge above a hero, centered gradient headline with filler subtext, twin CTAs (filled + outline), three-column icon-title-blurb grids, animated stat counters, fake testimonials, "trusted by" logo strips.
+- The untouched shadcn/default-template look.
+- Purple/indigo/violet-to-blue palettes. Stay on charcoal, alabaster, zinc/stone neutrals only.
+
+Banned motion:
+- No scroll-triggered fade/slide/stagger reveals. Nothing animates in on load or scroll.
+- No `hover:scale`, no bounce, no `animate-pulse`/`bounce`/`spin`/`ping`, no springy overshoot.
+- No parallax, typewriter, shimmer, marquee, looping floats.
+- No framer-motion for entrance choreography. If present, only functional state transitions.
+
+Required motion:
+- Only on interactive state change (hover, focus, active).
+- 150–250ms, `ease-out` or one restrained `cubic-bezier`, no overshoot. Animate only `opacity`, `color`, `background-color`, `border-color`, `transform: translate`. Never animate layout/size except the landing split.
+- The single signature motion is the landing split expansion. Everything else is quiet and near-instant.
+
+Buttons: rectangular, `rounded-none`, flat. Solid fill (charcoal on cream, cream on charcoal) or a 1px bordered ghost. Lowercase label with wide tracking. Hover inverts fill/border or shifts opacity. No scale, shadow, gradient, glow.
+
+Direction to build toward: restraint and deliberate negative space, asymmetric/off-center allowed (not everything in a centered `max-w-2xl mx-auto` column). Type carries hierarchy (real scale, controlled tracking/leading, one or two weights, sensible line length). Flat color plus real product photos do the visual work. Consistent spacing on one scale. Hairline borders for structure, not shadows. No filler marketing copy.
+
+## Design tokens
+
+- Brutalist: zero radius everywhere (`rounded-none`). Thin flat borders only: `border-zinc-800` on the dark side, `border-stone-200` on the cream side. No blur, gradients, or heavy shadows.
+- Typography: visible product names, headers, and price tokens forced lowercase with wide tracking `lowercase tracking-[0.3em]` (via CSS, not by mutating data). If the numeric price looks broken at `0.3em`, use `tracking-[0.2em]` for the price token only.
+- Navigation: no standalone header, no About/Contact pages. All legal links and a WhatsApp Business support anchor live in one minimalist sticky footer at the absolute bottom of scrollable content (not fixed over content).
+
+## Route interaction behavior
+
+`app/page.tsx` landing: flex row, two panels acting as giant click targets. Left (Men) `bg-[#0c0c0e]` -> `/men`. Right (Women) `bg-[#fdfbfc]` -> `/women`. On hover the targeted panel grows to `53%` and the sibling MUST shrink to `47%` so total stays 100% (no overflow); animate `flex-basis` with both panels reacting to one hover. Shift image brightness on the hovered side. Below `md`: no hover, stack vertically as full-width tap targets.
+
+`app/men/page.tsx` and `app/women/page.tsx`: two columns. Left = model posture frame, `sticky top-0` (NEVER `position: fixed`; fixed breaks in the column and overlaps the footer). Shows the base model image (men/women respectively) with per-product lookbook overlay layers on top, all `opacity-0` by default. Right = grid of catalog cards (query excludes `stock`), filtered to this gender; derive any type grouping from the distinct `accessory_type` values returned for this gender, never a hardcoded shared list. Overlay toggle: default bare model, all overlays `opacity-0`; hover a card -> its overlay `opacity-100`; hover off -> back to `opacity-0`; only one visible at a time. Below `md`: tap to toggle instead of hover.
+
+`app/product/[id]/page.tsx`: fetch by `id` server-side. Show price in AED (`price_fils / 100`, formatted like `aed 129`), material, `properties`, description paragraphs, express checkout button. Never show stock.
