@@ -124,37 +124,16 @@ export async function POST(request: Request) {
 
     const baseUrl = getBaseUrl();
     const primaryProductId = items[0].id;
-    const successPath =
-      items.length === 1
-        ? `/product/${primaryProductId}?checkout=success`
-        : "/?checkout=success";
     const cancelPath =
-      items.length === 1
-        ? `/product/${primaryProductId}?checkout=cancel`
-        : "/?checkout=cancel";
+      items.length === 1 ? `/product/${primaryProductId}` : "/";
 
     const stripe = new Stripe(stripeSecretKey);
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: lineItems,
-      shipping_options: [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: {
-              amount: 2500,
-              currency: "aed",
-            },
-            display_name: "next-day local courier",
-            delivery_estimate: {
-              minimum: { unit: "hour", value: 24 },
-              maximum: { unit: "hour", value: 48 },
-            },
-          },
-        },
-      ],
-      success_url: `${baseUrl}${successPath}`,
+      // TODO: re-add shipping_options (e.g. next-day local courier) when shipping is enabled.
+      success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}${cancelPath}`,
     });
 
