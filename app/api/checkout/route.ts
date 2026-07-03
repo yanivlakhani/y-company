@@ -131,6 +131,9 @@ export async function POST(request: Request) {
       mode: "payment",
       payment_method_types: ["card"],
       line_items: lineItems,
+      shipping_address_collection: {
+        allowed_countries: ["AE", "SA", "KW", "BH", "OM", "QA", "GB", "US"],
+      },
       metadata: {
         items: JSON.stringify(
           items.map(({ id, qty }) => ({

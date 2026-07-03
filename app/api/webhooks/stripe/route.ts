@@ -4,11 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-// TODO: record a full order record (customer, line items) on checkout.session.completed.
-
 type PurchasedItem = {
   id: string;
   qty: number;
+};
+
+type OrderItem = {
+  product_id: string;
+  name: string;
+  quantity: number;
+  price_fils: number;
 };
 
 function getStripe(): Stripe {
@@ -57,6 +62,21 @@ function parsePurchasedItems(metadata: Stripe.Metadata): PurchasedItem[] {
   });
 }
 
+async function orderAlreadyRecorded(sessionId: string): Promise<boolean> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to check existing order: ${error.message}`);
+  }
+
+  return Boolean(data);
+}
+
 async function decrementStock(items: PurchasedItem[]): Promise<void> {
   const supabase = createAdminClient();
 
@@ -81,6 +101,77 @@ async function decrementStock(items: PurchasedItem[]): Promise<void> {
     if (updateError) {
       throw new Error(`Failed to decrement stock for ${item.id}`);
     }
+  }
+}
+
+async function buildOrderItems(items: PurchasedItem[]): Promise<OrderItem[]> {
+  const supabase = createAdminClient();
+  const orderItems: OrderItem[] = [];
+
+  for (const item of items) {
+    const { data: product, error } = await supabase
+      .from("products")
+      .select("name, price_fils")
+      .eq("id", item.id)
+      .maybeSingle();
+
+    if (error || !product) {
+      throw new Error(`Product not found for order record: ${item.id}`);
+    }
+
+    orderItems.push({
+      product_id: item.id,
+      name: product.name,
+      quantity: item.qty,
+      price_fils: product.price_fils,
+    });
+  }
+
+  return orderItems;
+}
+
+async function recordOrder(
+  session: Stripe.Checkout.Session,
+  orderItems: OrderItem[],
+): Promise<void> {
+  const supabase = createAdminClient();
+
+  const email =
+    session.customer_details?.email ?? session.customer_email ?? null;
+
+  const shippingDetails = session.collected_information?.shipping_details;
+  const shippingAddress = shippingDetails
+    ? {
+        name: shippingDetails.name,
+        line1: shippingDetails.address.line1,
+        line2: shippingDetails.address.line2,
+        city: shippingDetails.address.city,
+        state: shippingDetails.address.state,
+        postal_code: shippingDetails.address.postal_code,
+        country: shippingDetails.address.country,
+      }
+    : (session.customer_details?.address ?? null);
+
+  if (session.amount_total === null || session.currency === null) {
+    throw new Error("Checkout session missing amount_total or currency");
+  }
+
+  const { error } = await supabase.from("orders").insert({
+    stripe_session_id: session.id,
+    email,
+    shipping_address: shippingAddress,
+    items: orderItems,
+    amount_total_fils: session.amount_total,
+    currency: session.currency,
+    status: "unfulfilled",
+  });
+
+  if (error?.code === "23505") {
+    return;
+  }
+
+  if (error) {
+    throw new Error(`Failed to record order: ${error.message}`);
   }
 }
 
@@ -152,9 +243,21 @@ export async function POST(request: Request) {
       return new Response("OK", { status: 200 });
     }
 
+    if (await orderAlreadyRecorded(session.id)) {
+      return new Response("OK", { status: 200 });
+    }
+
     claimed = true;
-    const items = parsePurchasedItems(session.metadata ?? {});
+
+    const fullSession = await getStripe().checkout.sessions.retrieve(session.id, {
+      expand: ["line_items"],
+    });
+
+    const items = parsePurchasedItems(fullSession.metadata ?? {});
     await decrementStock(items);
+
+    const orderItems = await buildOrderItems(items);
+    await recordOrder(fullSession, orderItems);
 
     return new Response("OK", { status: 200 });
   } catch (error) {
