@@ -301,7 +301,7 @@ async function main(): Promise<void> {
       images.push(publicUrl);
     }
 
-    const row = {
+    const productRow = {
       gender: folder.gender,
       accessory_type: folder.accessory_type,
       folder_index: folder.folder_index,
@@ -311,13 +311,12 @@ async function main(): Promise<void> {
       properties: metadata.properties,
       description: metadata.description,
       price_fils: metadata.price_fils,
-      stock: metadata.stock,
       images,
     };
 
     const { data: existing, error: existingError } = await supabase
       .from("products")
-      .select("id")
+      .select("id, stock")
       .eq("gender", folder.gender)
       .eq("accessory_type", folder.accessory_type)
       .eq("folder_index", folder.folder_index)
@@ -329,20 +328,33 @@ async function main(): Promise<void> {
       );
     }
 
-    const { error: upsertError } = await supabase
-      .from("products")
-      .upsert(row, { onConflict: "gender,accessory_type,folder_index" });
-
-    if (upsertError) {
-      throw new Error(`Failed to upsert ${folder.folderPath}: ${upsertError.message}`);
-    }
-
     if (existing) {
+      const { error: updateError } = await supabase
+        .from("products")
+        .update(productRow)
+        .eq("id", existing.id);
+
+      if (updateError) {
+        throw new Error(`Failed to update ${folder.folderPath}: ${updateError.message}`);
+      }
+
       updated += 1;
-      console.log(`updated ${folder.folderPath}`);
+      console.log(
+        `updated ${folder.folderPath} (stock preserved: ${existing.stock})`,
+      );
     } else {
+      const { error: insertError } = await supabase
+        .from("products")
+        .insert({ ...productRow, stock: metadata.stock });
+
+      if (insertError) {
+        throw new Error(`Failed to insert ${folder.folderPath}: ${insertError.message}`);
+      }
+
       inserted += 1;
-      console.log(`inserted ${folder.folderPath}`);
+      console.log(
+        `inserted ${folder.folderPath} (stock set from metadata: ${metadata.stock})`,
+      );
     }
   }
 

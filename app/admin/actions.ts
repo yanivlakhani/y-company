@@ -33,3 +33,31 @@ export async function updateOrderStatus(formData: FormData): Promise<void> {
 
   revalidatePath("/admin");
 }
+
+export async function updateProductStock(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const productId = formData.get("productId");
+  const stockRaw = formData.get("stock");
+
+  if (typeof productId !== "string" || !productId) {
+    throw new Error("Invalid product id");
+  }
+
+  const stock = Number.parseInt(String(stockRaw ?? ""), 10);
+  if (Number.isNaN(stock) || stock < 0) {
+    throw new Error("Invalid stock");
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ stock })
+    .eq("id", productId);
+
+  if (error) {
+    throw new Error(`Failed to update stock: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+}

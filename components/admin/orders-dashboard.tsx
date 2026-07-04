@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { updateOrderStatus } from "@/app/admin/actions";
+import { updateOrderStatus, updateProductStock } from "@/app/admin/actions";
 import {
   formatAmountAed,
   formatRelativeTime,
@@ -36,6 +36,28 @@ function StatusActions({ order }: { order: OrderRecord }) {
   );
 }
 
+function StockEditor({ product }: { product: ProductStockRow }) {
+  return (
+    <form action={updateProductStock} className="flex items-center gap-2">
+      <input type="hidden" name="productId" value={product.id} />
+      <input
+        type="number"
+        name="stock"
+        min={0}
+        step={1}
+        defaultValue={product.stock}
+        className="w-20 rounded-none border border-stone-200 bg-[#fdfbfc] px-2 py-1 text-xs lowercase tracking-[0.2em] text-stone-500"
+      />
+      <button
+        type="submit"
+        className="rounded-none border border-stone-200 px-2 py-1 text-xs lowercase tracking-[0.2em] transition-opacity duration-200 ease-out hover:opacity-70"
+      >
+        save
+      </button>
+    </form>
+  );
+}
+
 export function OrdersDashboard({ orders, products }: OrdersDashboardProps) {
   return (
     <div className="mx-auto grid max-w-6xl gap-12 px-6 pb-16 pt-20 md:px-10">
@@ -68,7 +90,9 @@ export function OrdersDashboard({ orders, products }: OrdersDashboardProps) {
                   <td className="px-4 py-3">{product.name}</td>
                   <td className="px-4 py-3">{product.gender}</td>
                   <td className="px-4 py-3">{product.accessory_type}</td>
-                  <td className="px-4 py-3">{product.stock}</td>
+                  <td className="px-4 py-3">
+                    <StockEditor product={product} />
+                  </td>
                 </tr>
               ))}
             </tbody>
