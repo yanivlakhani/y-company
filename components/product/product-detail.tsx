@@ -1,9 +1,8 @@
-import Image from "next/image";
-
 import { catalogTheme, formatPriceAed } from "@/lib/catalog";
 import type { ProductPublic } from "@/lib/types/product";
 
 import { CheckoutButton } from "@/components/product/checkout-button";
+import { ProductGallery } from "@/components/product/product-gallery";
 
 type ProductDetailProps = {
   product: ProductPublic;
@@ -28,18 +27,7 @@ export function ProductDetail({ product, checkoutEnabled }: ProductDetailProps) 
   return (
     <div className={`min-h-[100dvh] ${theme.page}`}>
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-10 px-6 pb-16 pt-16 md:grid-cols-2 md:gap-16 md:px-10 md:pb-20 md:pt-20">
-        <div className={`relative aspect-square w-full border ${theme.border}`}>
-          {product.thumb_url ? (
-            <Image
-              src={product.thumb_url}
-              alt=""
-              fill
-              priority
-              className="object-cover object-center"
-              sizes="(max-width: 768px) 100vw, 480px"
-            />
-          ) : null}
-        </div>
+        <ProductGallery images={product.images} borderClassName={theme.border} />
 
         <div className="flex flex-col justify-center space-y-8">
           <div className="space-y-4">

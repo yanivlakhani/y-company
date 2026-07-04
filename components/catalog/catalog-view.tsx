@@ -32,121 +32,115 @@ function useMinMd() {
   return minMd;
 }
 
-export function CatalogView({ gender, products }: CatalogViewProps) {
-  const minMd = useMinMd();
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const theme = catalogTheme(gender);
-  const groups = groupProductsByAccessoryType(products);
-  const modelSrc =
-    gender === "men"
-      ? "/placeholders/model-men.svg"
-      : "/placeholders/model-women.svg";
+type CatalogProductCardProps = {
+  product: ProductPublic;
+  minMd: boolean;
+  theme: ReturnType<typeof catalogTheme>;
+};
 
-  const handleGridMouseLeave = () => {
-    if (minMd) {
-      setActiveId(null);
+function CatalogProductCard({ product, minMd, theme }: CatalogProductCardProps) {
+  const [showAlt, setShowAlt] = useState(false);
+  const primary = product.images[0];
+  const secondary = product.images[1];
+  const hasAlt = Boolean(secondary);
+
+  const handleMouseEnter = () => {
+    if (minMd && hasAlt) {
+      setShowAlt(true);
     }
   };
 
-  const handleCardMouseEnter = (id: string) => {
+  const handleMouseLeave = () => {
     if (minMd) {
-      setActiveId(id);
+      setShowAlt(false);
     }
   };
 
-  const handleCardClick = (
-    event: React.MouseEvent<HTMLAnchorElement>,
-    id: string,
-  ) => {
-    if (minMd) {
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (minMd || !hasAlt || showAlt) {
       return;
     }
 
-    if (activeId !== id) {
-      event.preventDefault();
-      setActiveId(id);
-    }
+    event.preventDefault();
+    setShowAlt(true);
   };
+
+  return (
+    <li>
+      <Link
+        href={`/product/${product.id}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
+        className={`group block rounded-none border transition-colors duration-200 ease-out ${theme.border} ${theme.cardHover}`}
+      >
+        <div className="relative aspect-square w-full overflow-hidden">
+          {primary ? (
+            <Image
+              src={primary}
+              alt=""
+              fill
+              className={`object-cover object-center transition-opacity duration-200 ease-out ${
+                showAlt && hasAlt ? "opacity-0" : "opacity-100"
+              }`}
+              sizes="(max-width: 768px) 45vw, 25vw"
+            />
+          ) : null}
+          {secondary ? (
+            <Image
+              src={secondary}
+              alt=""
+              fill
+              className={`object-cover object-center transition-opacity duration-200 ease-out ${
+                showAlt ? "opacity-100" : "opacity-0"
+              }`}
+              sizes="(max-width: 768px) 45vw, 25vw"
+            />
+          ) : null}
+        </div>
+        <div className="space-y-1 border-t p-3 md:p-4">
+          <p className="text-xs lowercase tracking-[0.3em]">{product.name}</p>
+          <p className="text-xs lowercase tracking-[0.2em]">
+            {formatPriceAed(product.price_fils)}
+          </p>
+        </div>
+      </Link>
+    </li>
+  );
+}
+
+export function CatalogView({ gender, products }: CatalogViewProps) {
+  const minMd = useMinMd();
+  const theme = catalogTheme(gender);
+  const groups = groupProductsByAccessoryType(products);
 
   return (
     <>
       <PageNav variant={gender} backHref="/" />
 
-      <div className={`flex min-h-[100dvh] flex-col md:flex-row ${theme.page}`}>
-      <aside className="sticky top-0 z-10 h-[45dvh] w-full shrink-0 md:h-[100dvh] md:w-1/2 lg:w-[45%]">
-        <div className="relative h-full w-full">
-          <Image
-            src={modelSrc}
-            alt=""
-            fill
-            priority
-            className="object-cover object-center"
-            sizes="(max-width: 768px) 100vw, 45vw"
-          />
-          {products.map((product) =>
-            product.lookbook_url ? (
-              <Image
-                key={product.id}
-                src={product.lookbook_url}
-                alt=""
-                fill
-                className={`object-cover object-center transition-opacity duration-200 ease-out ${
-                  activeId === product.id ? "opacity-100" : "opacity-0"
-                }`}
-                sizes="(max-width: 768px) 100vw, 45vw"
-              />
-            ) : null,
-          )}
+      <div className={`min-h-[100dvh] ${theme.page}`}>
+        <div className="px-6 pb-10 pt-16 md:px-10 md:pb-12 md:pt-20">
+          {groups.map(({ accessoryType, products: typeProducts }) => (
+            <section key={accessoryType} className="mb-12 last:mb-0">
+              <h2
+                className={`mb-6 border-b pb-3 text-xs lowercase tracking-[0.3em] ${theme.border} ${theme.heading}`}
+              >
+                {accessoryType}
+              </h2>
+              <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+                {typeProducts.map((product) => (
+                  <CatalogProductCard
+                    key={product.id}
+                    product={product}
+                    minMd={minMd}
+                    theme={theme}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
-      </aside>
-
-      <div
-        className="flex-1 px-6 pb-10 pt-16 md:px-10 md:pb-12 md:pt-20"
-        onMouseLeave={handleGridMouseLeave}
-      >
-        {groups.map(({ accessoryType, products: typeProducts }) => (
-          <section key={accessoryType} className="mb-12 last:mb-0">
-            <h2
-              className={`mb-6 border-b pb-3 text-xs lowercase tracking-[0.3em] ${theme.border} ${theme.heading}`}
-            >
-              {accessoryType}
-            </h2>
-            <ul className="grid grid-cols-2 gap-4 md:gap-6">
-              {typeProducts.map((product) => (
-                <li key={product.id}>
-                  <Link
-                    href={`/product/${product.id}`}
-                    onMouseEnter={() => handleCardMouseEnter(product.id)}
-                    onClick={(event) => handleCardClick(event, product.id)}
-                    className={`group block rounded-none border transition-colors duration-200 ease-out ${theme.border} ${theme.cardHover}`}
-                  >
-                    <div className="relative aspect-square w-full overflow-hidden">
-                      {product.thumb_url ? (
-                        <Image
-                          src={product.thumb_url}
-                          alt=""
-                          fill
-                          className="object-cover object-center"
-                          sizes="(max-width: 768px) 45vw, 25vw"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="space-y-1 border-t p-3 md:p-4">
-                      <p className="text-xs lowercase tracking-[0.3em]">
-                        {product.name}
-                      </p>
-                      <p className="text-xs lowercase tracking-[0.2em]">
-                        {formatPriceAed(product.price_fils)}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
       </div>
-    </div>
     </>
   );
 }

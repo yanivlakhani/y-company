@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const RAW_IMPORTS_DIR = join(process.cwd(), "raw-imports");
 const BUCKET = "products";
 const BASELINE_PROPERTIES = ["waterproof", "sweat-resistant"] as const;
-const REQUIRED_FILES = ["thumb.png", "lookbook.png", "metadata.txt"] as const;
+const NUMBERED_IMAGE_PATTERN = /^(\d+)\.png$/i;
 const VALID_GENDERS = new Set(["men", "women"]);
 
 type Gender = "men" | "women";
@@ -140,13 +140,40 @@ function toSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function assertRequiredFiles(folderPath: string): void {
-  for (const fileName of REQUIRED_FILES) {
-    const filePath = join(folderPath, fileName);
-    if (!existsSync(filePath)) {
-      throw new Error(`Missing required file: ${filePath}`);
+function discoverNumberedImageIndexes(folderPath: string): number[] {
+  const indexes = readdirSync(folderPath)
+    .map((fileName) => {
+      const match = fileName.match(NUMBERED_IMAGE_PATTERN);
+      if (!match) {
+        return null;
+      }
+
+      return Number.parseInt(match[1], 10);
+    })
+    .filter((index): index is number => index !== null && !Number.isNaN(index));
+
+  return [...new Set(indexes)].sort((a, b) => a - b);
+}
+
+function assertProductFolder(folderPath: string): number[] {
+  const metadataPath = join(folderPath, "metadata.txt");
+  if (!existsSync(metadataPath)) {
+    throw new Error(`Missing required file: ${metadataPath}`);
+  }
+
+  const imageIndexes = discoverNumberedImageIndexes(folderPath);
+  if (imageIndexes.length === 0) {
+    throw new Error(`No numbered image files found in ${folderPath}`);
+  }
+
+  for (const index of imageIndexes) {
+    const imagePath = join(folderPath, `${index}.png`);
+    if (!existsSync(imagePath)) {
+      throw new Error(`Missing required file: ${imagePath}`);
     }
   }
+
+  return imageIndexes;
 }
 
 function discoverProductFolders(): ProductFolder[] {
@@ -253,7 +280,7 @@ async function main(): Promise<void> {
   let updated = 0;
 
   for (const folder of folders) {
-    assertRequiredFiles(folder.folderPath);
+    const imageIndexes = assertProductFolder(folder.folderPath);
 
     const metadataPath = join(folder.folderPath, "metadata.txt");
     const metadata = parseMetadata(
@@ -262,13 +289,17 @@ async function main(): Promise<void> {
     );
 
     const storagePrefix = `${folder.gender}/${folder.accessory_type}/${folder.folder_index}`;
-    const thumbPath = join(folder.folderPath, "thumb.png");
-    const lookbookPath = join(folder.folderPath, "lookbook.png");
+    const images: string[] = [];
 
-    const [thumb_url, lookbook_url] = await Promise.all([
-      uploadImage(supabase, thumbPath, `${storagePrefix}/thumb.png`),
-      uploadImage(supabase, lookbookPath, `${storagePrefix}/lookbook.png`),
-    ]);
+    for (const index of imageIndexes) {
+      const localPath = join(folder.folderPath, `${index}.png`);
+      const publicUrl = await uploadImage(
+        supabase,
+        localPath,
+        `${storagePrefix}/${index}.png`,
+      );
+      images.push(publicUrl);
+    }
 
     const row = {
       gender: folder.gender,
@@ -281,8 +312,7 @@ async function main(): Promise<void> {
       description: metadata.description,
       price_fils: metadata.price_fils,
       stock: metadata.stock,
-      thumb_url,
-      lookbook_url,
+      images,
     };
 
     const { data: existing, error: existingError } = await supabase

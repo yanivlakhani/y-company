@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -39,19 +38,19 @@ export function LandingSplit() {
   const womenFlexBasis =
     activeHover === "women" ? "53%" : activeHover === "men" ? "47%" : "50%";
 
-  const menBrightness =
+  const menPanelTone =
     activeHover === "men"
-      ? "brightness-110"
+      ? "bg-[#121214]"
       : activeHover === "women"
-        ? "brightness-90"
-        : "brightness-100";
+        ? "bg-[#08080a]"
+        : "bg-[#0c0c0e]";
 
-  const womenBrightness =
+  const womenPanelTone =
     activeHover === "women"
-      ? "brightness-110"
+      ? "bg-[#ffffff]"
       : activeHover === "men"
-        ? "brightness-90"
-        : "brightness-100";
+        ? "bg-[#f5f3f4]"
+        : "bg-[#fdfbfc]";
 
   return (
     <>
@@ -61,44 +60,28 @@ export function LandingSplit() {
         className="flex min-h-[100dvh] w-full flex-1 flex-col md:flex-row"
         onMouseLeave={() => setHovered(null)}
       >
-      <Link
-        href="/men"
-        onMouseEnter={() => minMd && setHovered("men")}
-        className="relative flex min-h-[50dvh] flex-1 flex-col justify-end overflow-hidden rounded-none border-b border-zinc-800 bg-[#0c0c0e] p-8 transition-[flex-basis,filter] duration-200 ease-out md:min-h-0 md:border-b-0 md:border-r md:p-12"
-        style={minMd ? { flex: `1 1 ${menFlexBasis}` } : undefined}
-      >
-        <Image
-          src="/placeholders/model-men.svg"
-          alt=""
-          fill
-          priority
-          className={`object-cover object-center transition-[filter] duration-200 ease-out ${menBrightness}`}
-          sizes="(max-width: 768px) 100vw, 50vw"
-        />
-        <span className="relative z-10 lowercase tracking-[0.3em] text-zinc-400">
-          men
-        </span>
-      </Link>
+        <Link
+          href="/men"
+          onMouseEnter={() => minMd && setHovered("men")}
+          className={`relative flex min-h-[50dvh] flex-1 flex-col justify-end overflow-hidden rounded-none border-b border-zinc-800 p-8 transition-[flex-basis,background-color] duration-200 ease-out md:min-h-0 md:border-b-0 md:border-r md:p-12 ${menPanelTone}`}
+          style={minMd ? { flex: `1 1 ${menFlexBasis}` } : undefined}
+        >
+          <span className="relative z-10 lowercase tracking-[0.3em] text-zinc-400">
+            men
+          </span>
+        </Link>
 
-      <Link
-        href="/women"
-        onMouseEnter={() => minMd && setHovered("women")}
-        className="relative flex min-h-[50dvh] flex-1 flex-col justify-end overflow-hidden rounded-none bg-[#fdfbfc] p-8 transition-[flex-basis,filter] duration-200 ease-out md:min-h-0 md:p-12"
-        style={minMd ? { flex: `1 1 ${womenFlexBasis}` } : undefined}
-      >
-        <Image
-          src="/placeholders/model-women.svg"
-          alt=""
-          fill
-          priority
-          className={`object-cover object-center transition-[filter] duration-200 ease-out ${womenBrightness}`}
-          sizes="(max-width: 768px) 100vw, 50vw"
-        />
-        <span className="relative z-10 lowercase tracking-[0.3em] text-stone-500">
-          women
-        </span>
-      </Link>
-    </main>
+        <Link
+          href="/women"
+          onMouseEnter={() => minMd && setHovered("women")}
+          className={`relative flex min-h-[50dvh] flex-1 flex-col justify-end overflow-hidden rounded-none p-8 transition-[flex-basis,background-color] duration-200 ease-out md:min-h-0 md:p-12 ${womenPanelTone}`}
+          style={minMd ? { flex: `1 1 ${womenFlexBasis}` } : undefined}
+        >
+          <span className="relative z-10 lowercase tracking-[0.3em] text-stone-500">
+            women
+          </span>
+        </Link>
+      </main>
     </>
   );
 }

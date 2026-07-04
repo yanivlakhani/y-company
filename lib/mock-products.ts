@@ -16,8 +16,10 @@ const mockProducts: MockProduct[] = [
       "a heavy industrial link stack engineered for daily wear",
     price_fils: 12900,
     stock: 45,
-    thumb_url: "/placeholders/men/bracelets/1/thumb.svg",
-    lookbook_url: "/placeholders/men/bracelets/1/lookbook.svg",
+    images: [
+      "/placeholders/men/bracelets/1/1.svg",
+      "/placeholders/men/bracelets/1/2.svg",
+    ],
     created_at: null,
   },
   {
@@ -32,8 +34,7 @@ const mockProducts: MockProduct[] = [
     description: "a flat signet band with a brushed steel finish",
     price_fils: 8900,
     stock: 30,
-    thumb_url: "/placeholders/men/rings/1/thumb.svg",
-    lookbook_url: "/placeholders/men/rings/1/lookbook.svg",
+    images: ["/placeholders/men/rings/1/1.svg"],
     created_at: null,
   },
   {
@@ -48,8 +49,11 @@ const mockProducts: MockProduct[] = [
     description: "a rigid cuff built from interlocked steel segments",
     price_fils: 14900,
     stock: 22,
-    thumb_url: "/placeholders/men/bracelets/2/thumb.svg",
-    lookbook_url: "/placeholders/men/bracelets/2/lookbook.svg",
+    images: [
+      "/placeholders/men/bracelets/2/1.svg",
+      "/placeholders/men/bracelets/2/2.svg",
+      "/placeholders/men/bracelets/2/3.svg",
+    ],
     created_at: null,
   },
   {
@@ -64,8 +68,7 @@ const mockProducts: MockProduct[] = [
     description: "a minimal chain anklet for daily wear",
     price_fils: 7900,
     stock: 38,
-    thumb_url: "/placeholders/women/anklets/1/thumb.svg",
-    lookbook_url: "/placeholders/women/anklets/1/lookbook.svg",
+    images: ["/placeholders/women/anklets/1/1.svg"],
     created_at: null,
   },
   {
@@ -80,8 +83,10 @@ const mockProducts: MockProduct[] = [
     description: "a single pearl suspended on a silk thread band",
     price_fils: 6900,
     stock: 50,
-    thumb_url: "/placeholders/women/bracelets/1/thumb.svg",
-    lookbook_url: "/placeholders/women/bracelets/1/lookbook.svg",
+    images: [
+      "/placeholders/women/bracelets/1/1.svg",
+      "/placeholders/women/bracelets/1/2.svg",
+    ],
     created_at: null,
   },
   {
@@ -96,8 +101,11 @@ const mockProducts: MockProduct[] = [
     description: "a slim band designed to stack with others",
     price_fils: 5900,
     stock: 60,
-    thumb_url: "/placeholders/women/rings/1/thumb.svg",
-    lookbook_url: "/placeholders/women/rings/1/lookbook.svg",
+    images: [
+      "/placeholders/women/rings/1/1.svg",
+      "/placeholders/women/rings/1/2.svg",
+      "/placeholders/women/rings/1/3.svg",
+    ],
     created_at: null,
   },
 ];
@@ -114,8 +122,7 @@ function toPublic(product: MockProduct): ProductPublic {
     properties: product.properties,
     description: product.description,
     price_fils: product.price_fils,
-    thumb_url: product.thumb_url,
-    lookbook_url: product.lookbook_url,
+    images: product.images,
     created_at: product.created_at,
   };
 }
