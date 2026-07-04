@@ -12,8 +12,8 @@ Purpose: render the full site via `npm run dev` before Supabase, Stripe, or real
 
 Fallback rule (auto-supersede): the catalog and product-detail data functions query Supabase first. If `NEXT_PUBLIC_SUPABASE_URL` is unset OR the query returns zero rows, fall back to `lib/mock-products.ts`. Once real ingested rows exist, mock data never renders. No env flag toggling; real data always wins.
 
-Mock dataset: ~3 products per gender. Include at least one women-only type (`anklets`) plus typical types (`bracelets`, `rings`) so the per-gender asymmetry shows. Each mock product has the same shape as a real row (name, material, properties with the baseline merged in, `price_fils`, `thumb_url`, `lookbook_url`) pointing at `public/placeholders/`.
+Mock dataset: ~3 products per gender. Include at least one women-only type (`anklets`) plus typical types (`bracelets`, `rings`) so the per-gender asymmetry shows. Each mock product has the same shape as a real row (name, material, properties with the baseline merged in, `price_fils`, `images` text array) pointing at `public/placeholders/`. Vary image counts across mocks: some products with 1 image, some with 2, some with 3 — so catalog hover-swap and product gallery behavior are both exercisable.
 
-Placeholder images: simple labeled placeholders (solid-fill SVG/PNG with the product name as text). Base model frames use `public/placeholders/model-men.svg` and `public/placeholders/model-women.svg`. Lookbook overlays are semi-transparent labeled boxes positioned over the model area so the hover-on/hover-off mechanic reads correctly. These are the ONLY images to fabricate.
+Placeholder images: simple labeled placeholders (solid-fill SVG/PNG with the product name as text). Per-product paths like `public/placeholders/{gender}/{accessory_type}/{folder_index}/1.png`, `2.png`, etc. No model-men/model-women frame assets — drop that concept entirely. These are the ONLY images to fabricate.
 
 Checkout in mock mode: do not create a live Stripe session for mock products (see the checkout rule).

@@ -21,14 +21,14 @@ create table products (
   description    text,
   price_fils     int  not null check (price_fils >= 0),
   stock          int  not null default 0 check (stock >= 0),
-  thumb_url      text,
-  lookbook_url   text,
+  images         text[] not null default '{}',
   created_at     timestamptz default now(),
   unique (gender, accessory_type, folder_index)
 );
 ```
 
 - `properties` is a real Postgres text array, not a comma string.
+- `images` is a real Postgres text array of public Storage URLs, ordered. Index 0 is the primary/catalog default; index 1 is the catalog hover swap if present.
 - Route product pages by `id`. `slug` is populated from the name (kebab-case) but not routed on yet.
 - Create a public Storage bucket named `products`.
 
@@ -38,7 +38,7 @@ create table products (
 - `[gender]` is `men` or `women`.
 - `[accessory_type]` is a lowercase type folder. The set of types is NOT mirrored across genders; some exist under one gender only (e.g. `anklets` under `women` only). Discover types by reading whatever folders exist per gender. Never hardcode a shared type list, never assume symmetry.
 - `[numbered_index_folder]` is `1`, `2`, `3`, ... per type.
-- Each folder holds exactly `thumb.png`, `lookbook.png`, `metadata.txt`.
+- Each folder holds `metadata.txt` plus one or more ordered image files named `1.png`, `2.png`, `3.png`, ... (numeric order; sort numerically, not lexically).
 
 ## metadata.txt parse rule (exact)
 
@@ -53,8 +53,10 @@ Always ensure `waterproof` and `sweat-resistant` are present in `properties` as 
 
 ## Idempotency and storage
 
-- Upload to deterministic paths `{gender}/{accessory_type}/{folder_index}/thumb.png` and `.../lookbook.png` in the `products` bucket with `{ upsert: true }`. Store the public URLs in `thumb_url`/`lookbook_url`.
-- Row write: `.upsert(row, { onConflict: 'gender,accessory_type,folder_index' })`. Log each row as inserted vs updated. Fail loudly with the folder path if a folder is missing any of the three required files.
+- Discover image files matching `/^\d+\.png$/` in each product folder. Sort by numeric filename (`1.png`, `2.png`, …), not lexical string order.
+- Upload to deterministic paths `{gender}/{accessory_type}/{folder_index}/{n}.png` in the `products` bucket with `{ upsert: true }`. Store the public URLs in `images` in that same numeric order.
+- Row write: `.upsert(row, { onConflict: 'gender,accessory_type,folder_index' })`. Log each row as inserted vs updated.
+- Fail loudly with the folder path if `metadata.txt` is missing OR if zero image files are found.
 - Script runs via `tsx scripts/ingest.ts`, loading env from `.env.local`. Never requires manual DB entry.
 
 ## Test fixture
@@ -68,4 +70,6 @@ description a heavy industrial link stack engineered for daily wear
 price 129
 stock 45
 ```
-Expected row: `name = "matte black bracelet"`, `price_fils = 12900`, `stock = 45`, `properties = ['custom steel clasp','waterproof','sweat-resistant']`, `gender = 'men'`, `accessory_type = 'bracelets'`, `folder_index = 1`, with `thumb_url`/`lookbook_url` into the `products` bucket.
+Same folder also contains `1.png` and `2.png` (at least one image required; this fixture uses two).
+
+Expected row: `name = "matte black bracelet"`, `price_fils = 12900`, `stock = 45`, `properties = ['custom steel clasp','waterproof','sweat-resistant']`, `gender = 'men'`, `accessory_type = 'bracelets'`, `folder_index = 1`, with `images = [<url for 1.png>, <url for 2.png>]` pointing into the `products` bucket in numeric order.
