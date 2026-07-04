@@ -23,10 +23,21 @@ export function formatPriceAed(priceFils: number): string {
   return `aed ${priceFils / 100}`;
 }
 
+export function accessorySectionId(accessoryType: string): string {
+  const slug = accessoryType
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `shop-${slug}`;
+}
+
 export function catalogTheme(gender: Gender) {
   if (gender === "men") {
     return {
       page: "bg-[#0c0c0e] text-zinc-400",
+      surface: "bg-[#0c0c0e]",
       border: "border-zinc-800",
       heading: "text-zinc-300",
       cardHover: "hover:border-zinc-600",
@@ -35,6 +46,7 @@ export function catalogTheme(gender: Gender) {
 
   return {
     page: "bg-[#fdfbfc] text-stone-500",
+    surface: "bg-[#fdfbfc]",
     border: "border-stone-200",
     heading: "text-stone-600",
     cardHover: "hover:border-stone-400",

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
+  accessorySectionId,
   catalogTheme,
   formatPriceAed,
   groupProductsByAccessoryType,
@@ -109,6 +110,11 @@ function CatalogProductCard({ product, minMd, theme }: CatalogProductCardProps) 
   );
 }
 
+function scrollToAccessorySection(accessoryType: string): void {
+  const section = document.getElementById(accessorySectionId(accessoryType));
+  section?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export function CatalogView({ gender, products }: CatalogViewProps) {
   const minMd = useMinMd();
   const theme = catalogTheme(gender);
@@ -120,8 +126,30 @@ export function CatalogView({ gender, products }: CatalogViewProps) {
 
       <div className={`min-h-[100dvh] ${theme.page}`}>
         <div className="px-6 pb-10 pt-16 md:px-10 md:pb-12 md:pt-20">
+          {groups.length > 0 ? (
+            <nav
+              aria-label="shop by category"
+              className={`sticky top-12 z-20 -mx-6 mb-8 flex flex-nowrap gap-3 overflow-x-auto px-6 pb-4 pt-2 md:top-14 md:-mx-10 md:flex-wrap md:overflow-visible md:px-10 ${theme.surface} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            >
+              {groups.map(({ accessoryType }) => (
+                <button
+                  key={accessoryType}
+                  type="button"
+                  onClick={() => scrollToAccessorySection(accessoryType)}
+                  className={`shrink-0 rounded-none border px-3 py-2 text-xs lowercase tracking-[0.3em] transition-opacity duration-200 ease-out hover:opacity-70 ${theme.border}`}
+                >
+                  shop {accessoryType}
+                </button>
+              ))}
+            </nav>
+          ) : null}
+
           {groups.map(({ accessoryType, products: typeProducts }) => (
-            <section key={accessoryType} className="mb-12 last:mb-0">
+            <section
+              key={accessoryType}
+              id={accessorySectionId(accessoryType)}
+              className="mb-12 scroll-mt-28 last:mb-0 md:scroll-mt-32"
+            >
               <h2
                 className={`mb-6 border-b pb-3 text-xs lowercase tracking-[0.3em] ${theme.border} ${theme.heading}`}
               >
