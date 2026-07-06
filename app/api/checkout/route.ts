@@ -39,7 +39,7 @@ function parseCheckoutBody(body: unknown): CheckoutItem[] {
 
   if (keys.length === 1 && keys[0] === "id") {
     if (typeof record.id !== "string" || !record.id) {
-      throw new CheckoutError("Invalid product id", 400);
+      throw new CheckoutError("Invalid variant id", 400);
     }
 
     return [{ id: record.id, qty: 1 }];
@@ -66,7 +66,7 @@ function parseCheckoutBody(body: unknown): CheckoutItem[] {
       }
 
       if (typeof entry.id !== "string" || !entry.id) {
-        throw new CheckoutError("Invalid product id", 400);
+        throw new CheckoutError("Invalid variant id", 400);
       }
 
       const qty = entry.qty === undefined ? 1 : Number(entry.qty);
@@ -93,21 +93,37 @@ export async function POST(request: Request) {
     const items = parseCheckoutBody(await request.json());
     const supabase = createAdminClient();
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+    const metadataItems: {
+      id: string;
+      qty: number;
+      product_id: string;
+    }[] = [];
+    let cancelProductId: string | null = null;
 
     for (const item of items) {
-      const { data: product, error } = await supabase
-        .from("products")
-        .select("id, name, price_fils, stock")
+      const { data: variant, error } = await supabase
+        .from("product_variants")
+        .select("id, color, stock, product_id, products (id, name, price_fils)")
         .eq("id", item.id)
         .maybeSingle();
 
-      if (error || !product) {
-        throw new CheckoutError("Product not found", 404);
+      if (error || !variant) {
+        throw new CheckoutError("Variant not found", 404);
       }
 
-      if (product.stock < item.qty) {
-        throw new CheckoutError("Product out of stock", 400);
+      const product = Array.isArray(variant.products)
+        ? variant.products[0]
+        : variant.products;
+
+      if (!product) {
+        throw new CheckoutError("Product not found for variant", 404);
       }
+
+      if (variant.stock < item.qty) {
+        throw new CheckoutError("Variant out of stock", 400);
+      }
+
+      cancelProductId = cancelProductId ?? product.id;
 
       lineItems.push({
         quantity: item.qty,
@@ -115,16 +131,25 @@ export async function POST(request: Request) {
           currency: "aed",
           unit_amount: product.price_fils,
           product_data: {
-            name: product.name,
+            name: variant.color
+              ? `${product.name} — ${variant.color}`
+              : product.name,
           },
         },
+      });
+
+      metadataItems.push({
+        id: variant.id,
+        qty: item.qty,
+        product_id: product.id,
       });
     }
 
     const baseUrl = getBaseUrl();
-    const primaryProductId = items[0].id;
     const cancelPath =
-      items.length === 1 ? `/product/${primaryProductId}` : "/";
+      items.length === 1 && cancelProductId
+        ? `/product/${cancelProductId}`
+        : "/";
 
     const stripe = new Stripe(stripeSecretKey);
     const session = await stripe.checkout.sessions.create({
@@ -135,12 +160,7 @@ export async function POST(request: Request) {
         allowed_countries: ["AE", "SA", "KW", "BH", "OM", "QA", "GB", "US"],
       },
       metadata: {
-        items: JSON.stringify(
-          items.map(({ id, qty }) => ({
-            id,
-            qty,
-          })),
-        ),
+        items: JSON.stringify(metadataItems),
       },
       // TODO: re-add shipping_options (e.g. next-day local courier) when shipping is enabled.
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,

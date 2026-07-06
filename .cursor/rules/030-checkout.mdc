@@ -8,11 +8,16 @@ alwaysApply: false
 
 - Pin the Node runtime: `export const runtime = 'nodejs'`. The Stripe Node library does not run on Vercel's Edge runtime.
 
-- Accept only `{ items: [{ id, qty }] }` (or a single `{ id }`). Reject anything else.
-- For each `id`, fetch `price_fils` and `stock` from Supabase using the server/secret key. Reject if any item is out of stock. Build Stripe `line_items` with `unit_amount = price_fils`, `currency: 'aed'`.
+- Accept only `{ items: [{ id, qty }] }` (or a single `{ id }`) where **`id` is a variant id** (`product_variants.id`), not a product id. Reject anything else.
+- For each variant `id`, fetch the parent product's `price_fils` and the variant's `stock` from Supabase using the server/secret key (join or two-step lookup). Reject if the variant is out of stock — **regardless of client-side toggle state**. Build Stripe `line_items` with `unit_amount = price_fils` from the product row, `currency: 'aed'`. Include variant color in line-item description/metadata for fulfillment clarity if helpful.
 - Create a Stripe Checkout Session: `mode: 'payment'`, card + Apple Pay enabled, one `shipping_options` entry for next-day local courier, `success_url`/`cancel_url` from `NEXT_PUBLIC_BASE_URL`. Return the session URL.
-- The server computes every amount. NEVER read price/amount/currency from the request body. A tampered request must never change what is charged.
+- The server computes every amount. NEVER read price/amount/currency from the request body. A tampered request must never change what is charged or bypass sold-out validation.
 - `price_fils` goes to Stripe with zero conversion (it is already the smallest unit, fils).
-- Add a `// TODO` for a Stripe webhook to decrement `stock` on `checkout.session.completed` (do not decrement optimistically before payment).
-- Apple Pay needs domain verification on the deployed domain: leave a `// TODO` for it.
+- Stripe webhook on `checkout.session.completed`: decrement **`product_variants.stock`** for each purchased variant id (not `products.stock`). Do not decrement optimistically before payment.
+- Apple Pay needs domain verification on the deployed domain: leave a `// TODO` for it if not yet done.
 - If `STRIPE_SECRET_KEY` is unset (preview mode), do not create a live session; the checkout button shows a "preview mode, checkout disabled" state instead of charging.
+
+## Public availability vs stock
+
+- Public/customer pages may expose per-variant **availability** as a boolean (`in_stock` / `available`: true when `stock > 0`). NEVER expose the numeric stock count on any public page or public API select.
+- Stock numbers are shown and editable **only** in the gated admin dashboard, **per variant** (not per product).

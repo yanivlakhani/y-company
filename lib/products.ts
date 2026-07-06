@@ -6,9 +6,11 @@ import {
 } from "@/lib/mock-products";
 import { createPublicClient } from "@/lib/supabase/public";
 import {
+  mapProductRow,
   PRODUCT_PUBLIC_SELECT,
   type Gender,
   type ProductPublic,
+  type ProductRowWithVariants,
 } from "@/lib/types/product";
 
 function isSupabaseConfigured(): boolean {
@@ -53,7 +55,7 @@ export const getProductsByGender = cache(
       return getMockProductsByGender(gender);
     }
 
-    return data as ProductPublic[];
+    return (data as ProductRowWithVariants[]).map(mapProductRow);
   },
 );
 
@@ -74,6 +76,6 @@ export const getProductById = cache(
       return null;
     }
 
-    return data as ProductPublic;
+    return mapProductRow(data as ProductRowWithVariants);
   },
 );

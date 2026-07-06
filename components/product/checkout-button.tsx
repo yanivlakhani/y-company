@@ -3,11 +3,18 @@
 import { useEffect, useState } from "react";
 
 type CheckoutButtonProps = {
-  productId: string;
+  variantId: string;
   className?: string;
+  disabled?: boolean;
+  soldOut?: boolean;
 };
 
-export function CheckoutButton({ productId, className }: CheckoutButtonProps) {
+export function CheckoutButton({
+  variantId,
+  className,
+  disabled = false,
+  soldOut = false,
+}: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +30,10 @@ export function CheckoutButton({ productId, className }: CheckoutButtonProps) {
   }, []);
 
   async function handleCheckout() {
+    if (disabled || soldOut) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -30,7 +41,7 @@ export function CheckoutButton({ productId, className }: CheckoutButtonProps) {
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: productId }),
+        body: JSON.stringify({ id: variantId }),
       });
 
       const data: { url?: string; error?: string } = await response.json();
@@ -50,15 +61,18 @@ export function CheckoutButton({ productId, className }: CheckoutButtonProps) {
     }
   }
 
+  const isDisabled = disabled || soldOut || loading;
+  const label = soldOut ? "sold out" : loading ? "redirecting…" : "express checkout";
+
   return (
     <div className="space-y-2">
       <button
         type="button"
         onClick={handleCheckout}
-        disabled={loading}
+        disabled={isDisabled}
         className={className}
       >
-        {loading ? "redirecting…" : "express checkout"}
+        {label}
       </button>
       {error ? (
         <p className="text-xs lowercase tracking-[0.2em] opacity-60">{error}</p>

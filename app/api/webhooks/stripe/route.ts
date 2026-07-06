@@ -7,11 +7,14 @@ export const runtime = "nodejs";
 type PurchasedItem = {
   id: string;
   qty: number;
+  product_id: string | null;
 };
 
 type OrderItem = {
+  variant_id: string;
   product_id: string;
   name: string;
+  color: string | null;
   quantity: number;
   price_fils: number;
 };
@@ -51,14 +54,19 @@ function parsePurchasedItems(metadata: Stripe.Metadata): PurchasedItem[] {
     const qty = Number(item.qty);
 
     if (typeof item.id !== "string" || !item.id) {
-      throw new Error("Invalid product id in session metadata");
+      throw new Error("Invalid variant id in session metadata");
     }
 
     if (!Number.isInteger(qty) || qty < 1) {
       throw new Error("Invalid quantity in session metadata");
     }
 
-    return { id: item.id, qty };
+    const productId =
+      typeof item.product_id === "string" && item.product_id
+        ? item.product_id
+        : null;
+
+    return { id: item.id, qty, product_id: productId };
   });
 }
 
@@ -81,25 +89,25 @@ async function decrementStock(items: PurchasedItem[]): Promise<void> {
   const supabase = createAdminClient();
 
   for (const item of items) {
-    const { data: product, error } = await supabase
-      .from("products")
+    const { data: variant, error } = await supabase
+      .from("product_variants")
       .select("stock")
       .eq("id", item.id)
       .maybeSingle();
 
-    if (error || !product) {
-      throw new Error(`Product not found for stock decrement: ${item.id}`);
+    if (error || !variant) {
+      throw new Error(`Variant not found for stock decrement: ${item.id}`);
     }
 
-    const nextStock = Math.max(0, product.stock - item.qty);
+    const nextStock = Math.max(0, variant.stock - item.qty);
 
     const { error: updateError } = await supabase
-      .from("products")
+      .from("product_variants")
       .update({ stock: nextStock })
       .eq("id", item.id);
 
     if (updateError) {
-      throw new Error(`Failed to decrement stock for ${item.id}`);
+      throw new Error(`Failed to decrement stock for variant ${item.id}`);
     }
   }
 }
@@ -109,19 +117,29 @@ async function buildOrderItems(items: PurchasedItem[]): Promise<OrderItem[]> {
   const orderItems: OrderItem[] = [];
 
   for (const item of items) {
-    const { data: product, error } = await supabase
-      .from("products")
-      .select("name, price_fils")
+    const { data: variant, error } = await supabase
+      .from("product_variants")
+      .select("id, color, product_id, products (id, name, price_fils)")
       .eq("id", item.id)
       .maybeSingle();
 
-    if (error || !product) {
-      throw new Error(`Product not found for order record: ${item.id}`);
+    if (error || !variant) {
+      throw new Error(`Variant not found for order record: ${item.id}`);
+    }
+
+    const product = Array.isArray(variant.products)
+      ? variant.products[0]
+      : variant.products;
+
+    if (!product) {
+      throw new Error(`Product not found for variant order record: ${item.id}`);
     }
 
     orderItems.push({
-      product_id: item.id,
+      variant_id: variant.id,
+      product_id: product.id,
       name: product.name,
+      color: variant.color ?? null,
       quantity: item.qty,
       price_fils: product.price_fils,
     });

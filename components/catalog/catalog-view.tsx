@@ -10,7 +10,12 @@ import {
   formatPriceAed,
   groupProductsByAccessoryType,
 } from "@/lib/catalog";
-import type { Gender, ProductPublic } from "@/lib/types/product";
+import {
+  getDefaultVariant,
+  isProductFullySoldOut,
+  type Gender,
+  type ProductPublic,
+} from "@/lib/types/product";
 
 import { PageNav } from "@/components/page-nav";
 
@@ -41,8 +46,10 @@ type CatalogProductCardProps = {
 
 function CatalogProductCard({ product, minMd, theme }: CatalogProductCardProps) {
   const [showAlt, setShowAlt] = useState(false);
-  const primary = product.images[0];
-  const secondary = product.images[1];
+  const defaultVariant = getDefaultVariant(product);
+  const soldOut = isProductFullySoldOut(product);
+  const primary = defaultVariant?.images[0];
+  const secondary = defaultVariant?.images[1];
   const hasAlt = Boolean(secondary);
 
   const handleMouseEnter = () => {
@@ -104,6 +111,11 @@ function CatalogProductCard({ product, minMd, theme }: CatalogProductCardProps) 
           <p className="text-xs lowercase tracking-[0.2em]">
             {formatPriceAed(product.price_fils)}
           </p>
+          {soldOut ? (
+            <p className="text-xs lowercase tracking-[0.3em] opacity-60">
+              sold out
+            </p>
+          ) : null}
         </div>
       </Link>
     </li>

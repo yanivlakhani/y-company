@@ -1,6 +1,8 @@
 export type OrderItem = {
+  variant_id?: string;
   product_id: string;
   name: string;
+  color?: string | null;
   quantity: number;
   price_fils: number;
 };

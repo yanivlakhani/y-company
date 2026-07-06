@@ -1,6 +1,13 @@
-import type { ProductPublic } from "@/lib/types/product";
+import {
+  mapVariantRow,
+  sortVariants,
+  type ProductPublic,
+  type ProductVariantRow,
+} from "@/lib/types/product";
 
-type MockProduct = ProductPublic & { stock: number };
+type MockProduct = Omit<ProductPublic, "variants"> & {
+  variants: ProductVariantRow[];
+};
 
 const mockProducts: MockProduct[] = [
   {
@@ -15,12 +22,26 @@ const mockProducts: MockProduct[] = [
     description:
       "a heavy industrial link stack engineered for daily wear",
     price_fils: 12900,
-    stock: 45,
-    images: [
-      "/placeholders/men/bracelets/1/1.svg",
-      "/placeholders/men/bracelets/1/2.svg",
-    ],
     created_at: null,
+    variants: [
+      {
+        id: "11111111-1111-4111-8111-111111110011",
+        color: "black",
+        images: [
+          "/placeholders/men/bracelets/1/black/1.svg",
+          "/placeholders/men/bracelets/1/black/2.svg",
+        ],
+        is_default: true,
+        stock: 45,
+      },
+      {
+        id: "11111111-1111-4111-8111-111111110012",
+        color: "gold",
+        images: ["/placeholders/men/bracelets/1/gold/1.svg"],
+        is_default: false,
+        stock: 0,
+      },
+    ],
   },
   {
     id: "11111111-1111-4111-8111-111111110002",
@@ -33,9 +54,16 @@ const mockProducts: MockProduct[] = [
     properties: ["waterproof", "sweat-resistant"],
     description: "a flat signet band with a brushed steel finish",
     price_fils: 8900,
-    stock: 30,
-    images: ["/placeholders/men/rings/1/1.svg"],
     created_at: null,
+    variants: [
+      {
+        id: "11111111-1111-4111-8111-111111110021",
+        color: "default",
+        images: ["/placeholders/men/rings/1/1.svg"],
+        is_default: true,
+        stock: 30,
+      },
+    ],
   },
   {
     id: "11111111-1111-4111-8111-111111110003",
@@ -48,13 +76,20 @@ const mockProducts: MockProduct[] = [
     properties: ["magnetic clasp", "waterproof", "sweat-resistant"],
     description: "a rigid cuff built from interlocked steel segments",
     price_fils: 14900,
-    stock: 22,
-    images: [
-      "/placeholders/men/bracelets/2/1.svg",
-      "/placeholders/men/bracelets/2/2.svg",
-      "/placeholders/men/bracelets/2/3.svg",
-    ],
     created_at: null,
+    variants: [
+      {
+        id: "11111111-1111-4111-8111-111111110031",
+        color: "default",
+        images: [
+          "/placeholders/men/bracelets/2/1.svg",
+          "/placeholders/men/bracelets/2/2.svg",
+          "/placeholders/men/bracelets/2/3.svg",
+        ],
+        is_default: true,
+        stock: 22,
+      },
+    ],
   },
   {
     id: "22222222-2222-4222-8222-222222220001",
@@ -67,9 +102,16 @@ const mockProducts: MockProduct[] = [
     properties: ["waterproof", "sweat-resistant"],
     description: "a minimal chain anklet for daily wear",
     price_fils: 7900,
-    stock: 38,
-    images: ["/placeholders/women/anklets/1/1.svg"],
     created_at: null,
+    variants: [
+      {
+        id: "22222222-2222-4222-8222-222222220011",
+        color: "default",
+        images: ["/placeholders/women/anklets/1/1.svg"],
+        is_default: true,
+        stock: 38,
+      },
+    ],
   },
   {
     id: "22222222-2222-4222-8222-222222220002",
@@ -82,12 +124,26 @@ const mockProducts: MockProduct[] = [
     properties: ["adjustable tie", "waterproof", "sweat-resistant"],
     description: "a single pearl suspended on a silk thread band",
     price_fils: 6900,
-    stock: 50,
-    images: [
-      "/placeholders/women/bracelets/1/1.svg",
-      "/placeholders/women/bracelets/1/2.svg",
-    ],
     created_at: null,
+    variants: [
+      {
+        id: "22222222-2222-4222-8222-222222220021",
+        color: "silver",
+        images: [
+          "/placeholders/women/bracelets/1/silver/1.svg",
+          "/placeholders/women/bracelets/1/silver/2.svg",
+        ],
+        is_default: true,
+        stock: 50,
+      },
+      {
+        id: "22222222-2222-4222-8222-222222220022",
+        color: "rose",
+        images: ["/placeholders/women/bracelets/1/rose/1.svg"],
+        is_default: false,
+        stock: 0,
+      },
+    ],
   },
   {
     id: "22222222-2222-4222-8222-222222220003",
@@ -100,13 +156,20 @@ const mockProducts: MockProduct[] = [
     properties: ["waterproof", "sweat-resistant"],
     description: "a slim band designed to stack with others",
     price_fils: 5900,
-    stock: 60,
-    images: [
-      "/placeholders/women/rings/1/1.svg",
-      "/placeholders/women/rings/1/2.svg",
-      "/placeholders/women/rings/1/3.svg",
-    ],
     created_at: null,
+    variants: [
+      {
+        id: "22222222-2222-4222-8222-222222220031",
+        color: "default",
+        images: [
+          "/placeholders/women/rings/1/1.svg",
+          "/placeholders/women/rings/1/2.svg",
+          "/placeholders/women/rings/1/3.svg",
+        ],
+        is_default: true,
+        stock: 60,
+      },
+    ],
   },
 ];
 
@@ -122,8 +185,8 @@ function toPublic(product: MockProduct): ProductPublic {
     properties: product.properties,
     description: product.description,
     price_fils: product.price_fils,
-    images: product.images,
     created_at: product.created_at,
+    variants: sortVariants(product.variants.map(mapVariantRow)),
   };
 }
 

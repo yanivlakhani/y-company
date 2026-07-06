@@ -136,10 +136,14 @@ export function OrdersDashboard({ orders, products }: OrdersDashboardProps) {
                     <ul className="space-y-1">
                       {order.items.map((item) => (
                         <li
-                          key={`${order.id}-${item.product_id}`}
+                          key={`${order.id}-${item.variant_id ?? item.product_id}`}
                           className="text-xs lowercase tracking-[0.2em]"
                         >
-                          {item.name} × {item.quantity}
+                          {item.name}
+                          {item.color && item.color !== "default"
+                            ? ` — ${item.color}`
+                            : ""}{" "}
+                          × {item.quantity}
                         </li>
                       ))}
                     </ul>

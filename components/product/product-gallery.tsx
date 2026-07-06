@@ -1,15 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ProductGalleryProps = {
   images: string[];
   borderClassName: string;
+  variantKey: string;
 };
 
-export function ProductGallery({ images, borderClassName }: ProductGalleryProps) {
+export function ProductGallery({
+  images,
+  borderClassName,
+  variantKey,
+}: ProductGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [variantKey]);
 
   if (images.length === 0) {
     return (

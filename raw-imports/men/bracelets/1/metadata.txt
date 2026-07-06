@@ -4,3 +4,6 @@ properties custom steel clasp
 description a heavy industrial link stack engineered for daily wear
 price 129
 stock 45
+default black
+stock black 30
+stock blue 25

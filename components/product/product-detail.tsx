@@ -1,5 +1,14 @@
+"use client";
+
+import { useState } from "react";
+
 import { catalogTheme, formatPriceAed } from "@/lib/catalog";
-import type { ProductPublic } from "@/lib/types/product";
+import {
+  getInitialSelectedVariant,
+  isProductFullySoldOut,
+  type ProductPublic,
+  type VariantPublic,
+} from "@/lib/types/product";
 
 import { CheckoutButton } from "@/components/product/checkout-button";
 import { ProductGallery } from "@/components/product/product-gallery";
@@ -23,11 +32,29 @@ function descriptionParagraphs(description: string | null): string[] {
 export function ProductDetail({ product, checkoutEnabled }: ProductDetailProps) {
   const theme = catalogTheme(product.gender);
   const paragraphs = descriptionParagraphs(product.description);
+  const variants = product.variants;
+  const showColorToggle = variants.length > 1;
+  const fullySoldOut = isProductFullySoldOut(product);
+
+  const [selectedVariantId, setSelectedVariantId] = useState(
+    () => getInitialSelectedVariant(product)?.id ?? "",
+  );
+
+  const selectedVariant: VariantPublic | null =
+    variants.find((variant) => variant.id === selectedVariantId) ??
+    getInitialSelectedVariant(product);
+
+  const soldOut =
+    fullySoldOut || (selectedVariant !== null && !selectedVariant.available);
 
   return (
     <div className={`min-h-[100dvh] ${theme.page}`}>
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-10 px-6 pb-16 pt-16 md:grid-cols-2 md:gap-16 md:px-10 md:pb-20 md:pt-20">
-        <ProductGallery images={product.images} borderClassName={theme.border} />
+        <ProductGallery
+          variantKey={selectedVariant?.id ?? "none"}
+          images={selectedVariant?.images ?? []}
+          borderClassName={theme.border}
+        />
 
         <div className="flex flex-col justify-center space-y-8">
           <div className="space-y-4">
@@ -38,6 +65,42 @@ export function ProductDetail({ product, checkoutEnabled }: ProductDetailProps) 
               {formatPriceAed(product.price_fils)}
             </p>
           </div>
+
+          {showColorToggle ? (
+            <div className="space-y-2">
+              <p className={`text-xs lowercase tracking-[0.3em] ${theme.heading}`}>
+                color
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((variant) => {
+                  const isSelected = variant.id === selectedVariant?.id;
+                  const isUnavailable = !variant.available;
+
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      disabled={isUnavailable}
+                      onClick={() => {
+                        if (!isUnavailable) {
+                          setSelectedVariantId(variant.id);
+                        }
+                      }}
+                      className={`rounded-none border px-3 py-2 text-xs lowercase tracking-[0.3em] transition-opacity duration-200 ease-out ${theme.border} ${
+                        isUnavailable
+                          ? "cursor-not-allowed line-through opacity-40"
+                          : isSelected
+                            ? "opacity-100"
+                            : "opacity-60 hover:opacity-80"
+                      }`}
+                    >
+                      {variant.color}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {product.material ? (
             <div className="space-y-2">
@@ -82,10 +145,12 @@ export function ProductDetail({ product, checkoutEnabled }: ProductDetailProps) 
           ) : null}
 
           <div className="pt-2">
-            {checkoutEnabled ? (
+            {checkoutEnabled && selectedVariant ? (
               <CheckoutButton
-                productId={product.id}
-                className={`rounded-none border px-6 py-3 text-xs lowercase tracking-[0.3em] transition-opacity duration-200 ease-out hover:opacity-70 disabled:opacity-60 ${theme.border}`}
+                variantId={selectedVariant.id}
+                disabled={soldOut}
+                soldOut={soldOut}
+                className={`rounded-none border px-6 py-3 text-xs lowercase tracking-[0.3em] transition-opacity duration-200 ease-out hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-60 ${theme.border}`}
               />
             ) : (
               <p className="text-xs lowercase tracking-[0.3em] opacity-60">

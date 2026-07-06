@@ -12,12 +12,13 @@ Do NOT build everything at once. Work through these steps in order, and after ea
 1. Project init, Tailwind, env scaffolding, both Supabase client files (`lib/supabase/client.ts` browser, `lib/supabase/server.ts` async server).
 2. `lib/mock-products.ts` + `public/placeholders/` and the Supabase-first / mock-fallback data functions, so the site is previewable with no backend.
 3. Landing split (correct 47/53 math + mobile stack).
-4. `/men` + `/women` catalog with card hover-swap (`images[0]` → `images[1]` when present), rendering from mock data at this stage.
-5. `/product/[id]` with image gallery (main image + clickable thumbnails from `images` array).
+4. `/men` + `/women` catalog with card hover-swap on the **default variant's** images, category quick-nav, rendering from mock data at this stage.
+5. `/product/[id]` with variant color toggle (multi-variant only), gallery per selected variant, sold-out cross-out, auto-select first in-stock when default sold out.
 6. Sticky footer with legal + WhatsApp anchor. (Now `npm run dev` shows the full site on mock data.)
-7. SQL migration + `products` bucket.
-8. `scripts/ingest.ts`; confirm it populates rows + images idempotently against the test fixture. Real rows now supersede mock automatically.
-9. Checkout route (disabled/preview state until `STRIPE_SECRET_KEY` is set).
+7. SQL migration: `products` + `product_variants` tables + `products` bucket.
+8. `scripts/ingest.ts`; confirm it populates product + variant rows and images idempotently against the test fixture. Per-variant stock preserved on re-ingest. Real rows now supersede mock automatically.
+9. Checkout route + webhook on **variant ids** (disabled/preview state until `STRIPE_SECRET_KEY` is set).
+10. Admin: per-variant stock edit behind admin gate.
 
 ## Env vars
 
@@ -25,19 +26,26 @@ Do NOT build everything at once. Work through these steps in order, and after ea
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=   # publishable, client-safe
 SUPABASE_SECRET_KEY=             # secret, server + ingest ONLY
+ADMIN_SECRET=
 STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 NEXT_PUBLIC_BASE_URL=
 ```
 
 ## Acceptance / do-not
 
-- Running ingest twice = same row count, images overwritten, no errors.
-- A hand-edited checkout request cannot change the charged amount.
-- No `stock` value ever reaches the client.
+- Running ingest twice = same product + variant row count, images overwritten, **variant stock preserved** on existing rows, no errors.
+- A hand-edited checkout request cannot change the charged amount or purchase a sold-out variant by id tampering.
+- No numeric `stock` value ever reaches the client. Per-variant `available` / in-stock boolean is allowed on public pages.
 - Accessory types are read from folders per gender; a women-only type like `anklets` appears on `/women`, never `/men`.
-- Catalog card hover shows `images[1]` only when it exists; otherwise `images[0]` stays unchanged. Hover off returns to `images[0]`.
-- Product detail page gallery renders all `images` in order; thumbnail click updates the main image.
+- Catalog card shows the **default variant's** `images[0]`; hover swaps to `images[1]` when present on that variant.
+- Catalog card shows "sold out" when **all** variants are out of stock; product still appears in the grid.
+- Product page: multi-variant products show color toggle; single-variant products hide it entirely.
+- Sold-out variant color buttons are crossed-out and not clickable; checkout sends the selected in-stock **variant id**.
+- Product page opens on default variant; auto-selects first in-stock variant when default is sold out.
+- Product detail gallery renders the **selected variant's** `images` in order; thumbnail click updates the main image.
 - Mock content lives only in `lib/mock-products.ts` and `public/placeholders/`; deleting both fully removes it, and real rows render instead of mock with no code change.
+- Mock includes at least one multi-variant product with a sold-out color plus single-variant products.
 - No page uses border-radius, gradients, or blur. Product names/headers/prices render lowercase.
 - No hover-only interaction is the sole path on mobile.
 - No login, no About/Contact pages, no header bar.

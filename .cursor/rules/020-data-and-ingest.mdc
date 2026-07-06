@@ -1,5 +1,5 @@
 ---
-description: Products schema, Supabase storage, and the ingest script rules (parsing, idempotency, baseline properties, test fixture).
+description: Products schema, product variants, Supabase storage, and the ingest script rules (parsing, idempotency, baseline properties, test fixture).
 globs: scripts/**,supabase/**,**/migrations/**,lib/supabase/**
 alwaysApply: false
 ---
@@ -20,31 +20,55 @@ create table products (
   properties     text[] not null default '{}',
   description    text,
   price_fils     int  not null check (price_fils >= 0),
-  stock          int  not null default 0 check (stock >= 0),
-  images         text[] not null default '{}',
   created_at     timestamptz default now(),
   unique (gender, accessory_type, folder_index)
 );
+
+create table product_variants (
+  id         uuid primary key default gen_random_uuid(),
+  product_id uuid not null references products(id) on delete cascade,
+  color      text not null,
+  images     text[] not null default '{}',
+  stock      int  not null default 0 check (stock >= 0),
+  is_default boolean not null default false,
+  unique (product_id, color)
+);
 ```
 
+- `products` holds shared catalog fields only — **no** `images`, **no** `stock`. Price is per product (same across colors).
+- `product_variants` holds per-color `images`, `stock`, and `is_default`. Exactly one variant per product must be `is_default = true`.
 - `properties` is a real Postgres text array, not a comma string.
-- `images` is a real Postgres text array of public Storage URLs, ordered. Index 0 is the primary/catalog default; index 1 is the catalog hover swap if present.
-- Route product pages by `id`. `slug` is populated from the name (kebab-case) but not routed on yet.
+- `images` on a variant is a real Postgres text array of public Storage URLs, ordered. Index 0 is the primary/catalog default for that variant; index 1 is the catalog hover swap if present.
+- Route product pages by product `id`. Checkout and webhooks operate on variant `id` (see checkout rule).
 - Create a public Storage bucket named `products`.
 
 ## Source tree
 
 `raw-imports/[gender]/[accessory_type]/[numbered_index_folder]/`
+
 - `[gender]` is `men` or `women`.
 - `[accessory_type]` is a lowercase type folder. The set of types is NOT mirrored across genders; some exist under one gender only (e.g. `anklets` under `women` only). Discover types by reading whatever folders exist per gender. Never hardcode a shared type list, never assume symmetry.
 - `[numbered_index_folder]` is `1`, `2`, `3`, ... per type.
-- Each folder holds `metadata.txt` plus one or more ordered image files named `1.png`, `2.png`, `3.png`, ... (numeric order; sort numerically, not lexically).
+- Each product folder holds `metadata.txt` plus **either**:
+  - **Multi-variant:** one subfolder per color (e.g. `black/`, `gold/`, `silver/`). Color names are discovered from subfolder names — never hardcoded. Each color subfolder holds ordered image files `1.png`, `2.png`, …
+  - **Single-variant (legacy/simple):** loose numbered image files `1.png`, `2.png`, … directly in the product folder (no color subfolders). Ingest creates one variant with `color = 'default'`, `is_default = true`.
+
+Example multi-variant layout:
+```
+raw-imports/women/necklaces/1/
+  metadata.txt
+  black/1.png  black/2.png
+  gold/1.png   gold/2.png
+```
 
 ## metadata.txt parse rule (exact)
 
 - One key per line. Split each line on the FIRST whitespace only: first token is the key, the entire remainder is the value. Do NOT `.split(' ')` naively.
-- Keys: `name`, `material`, `properties`, `description`, `price`, `stock`. No colons.
-- Trim values, skip blank lines. `price` and `stock` parse as integers.
+- Shared keys (product row): `name`, `material`, `properties`, `description`, `price`. No colons.
+- Variant keys:
+  - `default <color>` — which color subfolder is the catalog default (must match a subfolder name). Required when color subfolders exist. For single-variant products (loose images, no subfolders), omit; the lone variant is default automatically.
+  - `stock <color> <n>` — initial stock for that color on **first insert only** (one line per color). For single-variant products with loose images: `stock default <n>` or a bare legacy `stock <n>` line (treated as `stock default <n>`).
+- Trim values, skip blank lines. `price` and stock values parse as integers.
 - `price` is whole AED and MUST be multiplied by 100 to get `price_fils` (`price 129` -> `12900`).
 
 ## Baseline properties
@@ -53,23 +77,29 @@ Always ensure `waterproof` and `sweat-resistant` are present in `properties` as 
 
 ## Idempotency and storage
 
-- Discover image files matching `/^\d+\.png$/` in each product folder. Sort by numeric filename (`1.png`, `2.png`, …), not lexical string order.
-- Upload to deterministic paths `{gender}/{accessory_type}/{folder_index}/{n}.png` in the `products` bucket with `{ upsert: true }`. Store the public URLs in `images` in that same numeric order.
-- Row write: `.upsert(row, { onConflict: 'gender,accessory_type,folder_index' })`. Log each row as inserted vs updated.
-- Fail loudly with the folder path if `metadata.txt` is missing OR if zero image files are found.
+- **Product row:** `.upsert(row, { onConflict: 'gender,accessory_type,folder_index' })`. Shared fields update on re-ingest; product row never carries images or stock.
+- **Variant rows:** upsert on `(product_id, color)`. Discover colors from subfolder names, or synthesize `default` for loose-image products.
+- **Images:** discover `/^\d+\.png$/` in each variant folder (color subfolder or product root for single-variant). Sort numerically, not lexically.
+- **Upload paths:** `{gender}/{accessory_type}/{folder_index}/{color}/{n}.png` for multi-variant; `{gender}/{accessory_type}/{folder_index}/{n}.png` for single-variant default. Upload with `{ upsert: true }`. Store public URLs in that variant's `images` array in numeric order.
+- **Stock preservation:** on re-ingest, **existing variant stock is never overwritten** — same rule as before but per variant. Initial stock from metadata applies on **first insert of that variant only**. Admin is the ongoing stock source (see admin / checkout rules).
+- Fail loudly with the folder path if `metadata.txt` is missing, if multi-variant product has no color subfolders, if `default` names a missing color, or if any variant folder has zero image files.
 - Script runs via `tsx scripts/ingest.ts`, loading env from `.env.local`. Never requires manual DB entry.
 
 ## Test fixture
 
-`raw-imports/men/bracelets/1/metadata.txt`:
+`raw-imports/men/bracelets/1/metadata.txt` (multi-variant example):
 ```
 name matte black bracelet
 material 316l stainless steel and matte volcanic obsidian
 properties custom steel clasp
 description a heavy industrial link stack engineered for daily wear
 price 129
-stock 45
+default black
+stock black 45
+stock gold 30
 ```
-Same folder also contains `1.png` and `2.png` (at least one image required; this fixture uses two).
+Folder `men/bracelets/1/black/` contains `1.png`, `2.png`. Folder `men/bracelets/1/gold/` contains `1.png`.
 
-Expected row: `name = "matte black bracelet"`, `price_fils = 12900`, `stock = 45`, `properties = ['custom steel clasp','waterproof','sweat-resistant']`, `gender = 'men'`, `accessory_type = 'bracelets'`, `folder_index = 1`, with `images = [<url for 1.png>, <url for 2.png>]` pointing into the `products` bucket in numeric order.
+Single-variant example: `raw-imports/men/rings/1/` with loose `1.png` only and `stock default 30` in metadata.
+
+Expected: one `products` row plus one or more `product_variants` rows with correct `is_default`, ordered `images`, and initial stock on first insert only.

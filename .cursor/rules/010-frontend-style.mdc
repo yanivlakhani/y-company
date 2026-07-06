@@ -44,8 +44,20 @@ Direction to build toward: restraint and deliberate negative space, asymmetric/o
 
 ## Route interaction behavior
 
-`app/page.tsx` landing: flex row, two panels acting as giant click targets. Left (Men) `bg-[#0c0c0e]` -> `/men`. Right (Women) `bg-[#fdfbfc]` -> `/women`. On hover the targeted panel grows to `53%` and the sibling MUST shrink to `47%` so total stays 100% (no overflow); animate `flex-basis` with both panels reacting to one hover. Shift image brightness on the hovered side. Below `md`: no hover, stack vertically as full-width tap targets.
+`app/page.tsx` landing: flex row, two panels acting as giant click targets. Left (Men) `bg-[#0c0c0e]` -> `/men`. Right (Women) `bg-[#fdfbfc]` -> `/women`. On hover the targeted panel grows to `53%` and the sibling MUST shrink to `47%` so total stays 100% (no overflow); animate `flex-basis` with both panels reacting to one hover. Subtle flat background tone shift on the hovered side. Below `md`: no hover, stack vertically as full-width tap targets.
 
-`app/men/page.tsx` and `app/women/page.tsx`: single-column catalog grid (query excludes `stock`), filtered to this gender; derive any type grouping from the distinct `accessory_type` values returned for this gender, never a hardcoded shared list. No side-model column, no overlay layers. Each catalog card shows `images[0]`; on hover, swap to `images[1]` if it exists, otherwise the image stays unchanged (150–250ms opacity crossfade or instant swap — no scale). Below `md`: no hover swap required; optional tap to advance to the next image if more than one exists, but navigation to the product page must remain available without hover-only blocking.
+`app/men/page.tsx` and `app/women/page.tsx`: responsive multi-column catalog grid, filtered to this gender; derive type grouping and quick-nav buttons from distinct `accessory_type` values returned for this gender, never a hardcoded shared list. No side-model column, no overlay layers.
 
-`app/product/[id]/page.tsx`: fetch by `id` server-side. Image gallery from the full ordered `images` array: one main image with a row/grid of thumbnails below or beside it; clicking a thumbnail changes the main image. Show price in AED (`price_fils / 100`, formatted like `aed 129`), material, `properties`, description paragraphs, express checkout button. Never show stock.
+**Catalog card (default variant):** each card shows the **default variant's** `images[0]`; on hover, swap to `images[1]` if it exists (150–250ms opacity crossfade — no scale). Hover off returns to `images[0]`. Below `md`: no hover swap required; optional tap to advance if more than one image on the default variant.
+
+**Sold out in catalog:** if **every** variant of a product is out of stock, the card remains visible with a lowercase "sold out" label — the product does not disappear from the grid. Partial availability (some colors in stock) shows normally using the default variant's images.
+
+`app/product/[id]/page.tsx`: fetch product + variants server-side. Shared fields: price in AED (`price_fils / 100`, formatted like `aed 129`), material, `properties`, description paragraphs. Never show stock numbers publicly.
+
+**Color toggle (multi-variant only):** if the product has more than one variant, render a row of color buttons (lowercase color name, tracked, flat bordered). Clicking a color swaps the image gallery to **that variant's** `images` array only. If the product has exactly one variant, render **no** color toggle — behave as a normal single product.
+
+**Sold-out variants:** a variant with zero stock shows its color button crossed-out (e.g. strikethrough or reduced opacity with `line-through`) and is **not clickable**. Checkout button targets the selected in-stock variant only.
+
+**Initial variant selection:** page opens on the default variant's gallery. If the default variant is sold out, auto-select the **first in-stock variant** (stable order: default first, then remaining colors alphabetically or ingest order). If all variants are sold out, show gallery from default variant but disable checkout with a sold-out state.
+
+**Gallery:** main image + clickable thumbnails from the **selected variant's** ordered `images`. Thumbnail click updates the main image. Single-image variant: main image only, no thumbnail strip.

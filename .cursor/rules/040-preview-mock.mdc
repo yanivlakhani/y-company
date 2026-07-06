@@ -7,13 +7,18 @@ alwaysApply: false
 # preview / mock data (temporary, removable, isolated)
 
 Purpose: render the full site via `npm run dev` before Supabase, Stripe, or real images exist. Confine ALL mock content to exactly two locations so it deletes in one step:
-- `lib/mock-products.ts` — the mock product array.
+- `lib/mock-products.ts` — the mock product + variant data.
 - `public/placeholders/` — placeholder images.
 
 Fallback rule (auto-supersede): the catalog and product-detail data functions query Supabase first. If `NEXT_PUBLIC_SUPABASE_URL` is unset OR the query returns zero rows, fall back to `lib/mock-products.ts`. Once real ingested rows exist, mock data never renders. No env flag toggling; real data always wins.
 
-Mock dataset: ~3 products per gender. Include at least one women-only type (`anklets`) plus typical types (`bracelets`, `rings`) so the per-gender asymmetry shows. Each mock product has the same shape as a real row (name, material, properties with the baseline merged in, `price_fils`, `images` text array) pointing at `public/placeholders/`. Vary image counts across mocks: some products with 1 image, some with 2, some with 3 — so catalog hover-swap and product gallery behavior are both exercisable.
+Mock dataset: ~3 products per gender. Include at least one women-only type (`anklets`) plus typical types (`bracelets`, `rings`, `necklaces`, etc.) so the per-gender asymmetry shows.
 
-Placeholder images: simple labeled placeholders (solid-fill SVG/PNG with the product name as text). Per-product paths like `public/placeholders/{gender}/{accessory_type}/{folder_index}/1.png`, `2.png`, etc. No model-men/model-women frame assets — drop that concept entirely. These are the ONLY images to fabricate.
+**Variant coverage (required):**
+- At least **one multi-variant product** with 2–3 colors, varied image counts per color, one color **sold out** (`stock: 0`) to exercise cross-out toggle and auto-select-first-in-stock behavior.
+- Several **single-variant products** (one color / default only) to confirm the color toggle is hidden.
+- Each variant mirrors a real row shape: `color`, ordered `images` array, `stock`, `is_default`. Product row holds shared fields (`name`, `material`, `properties` with baseline merged, `price_fils`, `description`). Public mock selects expose variant `available` boolean, never stock count.
 
-Checkout in mock mode: do not create a live Stripe session for mock products (see the checkout rule).
+Placeholder images: simple labeled placeholders (solid-fill SVG/PNG). Paths follow ingest layout, e.g. `public/placeholders/{gender}/{accessory_type}/{folder_index}/{color}/1.svg` for multi-variant, or `.../{folder_index}/1.svg` for single-variant default. No model-men/model-women frame assets. These are the ONLY images to fabricate.
+
+Checkout in mock mode: do not create a live Stripe session for mock variants (see the checkout rule).

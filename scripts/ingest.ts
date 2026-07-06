@@ -1,4 +1,9 @@
-import { existsSync, readFileSync, readdirSync } from "fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  type Dirent,
+} from "fs";
 import { join } from "path";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -17,7 +22,8 @@ type ParsedMetadata = {
   properties: string[];
   description: string | null;
   price_fils: number;
-  stock: number;
+  defaultColor: string | null;
+  stockByColor: Map<string, number>;
 };
 
 type ProductFolder = {
@@ -25,6 +31,12 @@ type ProductFolder = {
   accessory_type: string;
   folder_index: number;
   folderPath: string;
+};
+
+type VariantSource = {
+  color: string;
+  folderPath: string;
+  storagePrefix: string;
 };
 
 function loadEnvLocal(): void {
@@ -95,8 +107,35 @@ function mergeBaselineProperties(properties: string[]): string[] {
   return merged;
 }
 
+function parseStockLineValue(
+  value: string,
+  folderPath: string,
+): { color: string; stock: number } {
+  const trimmed = value.trim();
+
+  if (!trimmed.includes(" ")) {
+    const stock = Number.parseInt(trimmed, 10);
+    if (Number.isNaN(stock)) {
+      throw new Error(`Invalid stock in ${folderPath}/metadata.txt: ${value}`);
+    }
+
+    return { color: "default", stock };
+  }
+
+  const lastSpace = trimmed.lastIndexOf(" ");
+  const color = trimmed.slice(0, lastSpace).trim();
+  const stock = Number.parseInt(trimmed.slice(lastSpace + 1).trim(), 10);
+
+  if (!color || Number.isNaN(stock)) {
+    throw new Error(`Invalid stock line in ${folderPath}/metadata.txt: ${value}`);
+  }
+
+  return { color, stock };
+}
+
 function parseMetadata(content: string, folderPath: string): ParsedMetadata {
   const fields: Record<string, string> = {};
+  const stockByColor = new Map<string, number>();
 
   for (const line of content.split("\n")) {
     const parsed = parseMetadataLine(line);
@@ -105,6 +144,13 @@ function parseMetadata(content: string, folderPath: string): ParsedMetadata {
     }
 
     const [key, value] = parsed;
+
+    if (key === "stock") {
+      const { color, stock } = parseStockLineValue(value, folderPath);
+      stockByColor.set(color, stock);
+      continue;
+    }
+
     fields[key] = value;
   }
 
@@ -117,18 +163,14 @@ function parseMetadata(content: string, folderPath: string): ParsedMetadata {
     throw new Error(`Invalid price in ${folderPath}/metadata.txt`);
   }
 
-  const stock = Number.parseInt(fields.stock ?? "", 10);
-  if (Number.isNaN(stock)) {
-    throw new Error(`Invalid stock in ${folderPath}/metadata.txt`);
-  }
-
   return {
     name: fields.name,
     material: fields.material ?? null,
     properties: mergeBaselineProperties(parsePropertiesValue(fields.properties)),
     description: fields.description ?? null,
     price_fils: price * 100,
-    stock,
+    defaultColor: fields.default ?? null,
+    stockByColor,
   };
 }
 
@@ -155,15 +197,18 @@ function discoverNumberedImageIndexes(folderPath: string): number[] {
   return [...new Set(indexes)].sort((a, b) => a - b);
 }
 
-function assertProductFolder(folderPath: string): number[] {
-  const metadataPath = join(folderPath, "metadata.txt");
-  if (!existsSync(metadataPath)) {
-    throw new Error(`Missing required file: ${metadataPath}`);
-  }
+function listColorSubfolders(folderPath: string): string[] {
+  return readdirSync(folderPath, { withFileTypes: true })
+    .filter((entry: Dirent) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b));
+}
 
+function assertVariantImages(folderPath: string, label: string): number[] {
   const imageIndexes = discoverNumberedImageIndexes(folderPath);
+
   if (imageIndexes.length === 0) {
-    throw new Error(`No numbered image files found in ${folderPath}`);
+    throw new Error(`No numbered image files found in ${label}`);
   }
 
   for (const index of imageIndexes) {
@@ -174,6 +219,94 @@ function assertProductFolder(folderPath: string): number[] {
   }
 
   return imageIndexes;
+}
+
+function assertMetadataExists(folderPath: string): void {
+  const metadataPath = join(folderPath, "metadata.txt");
+  if (!existsSync(metadataPath)) {
+    throw new Error(`Missing required file: ${metadataPath}`);
+  }
+}
+
+function discoverVariantSources(
+  folder: ProductFolder,
+): { variants: VariantSource[]; defaultColor: string; usesColorSubfolders: boolean } {
+  assertMetadataExists(folder.folderPath);
+
+  const colorSubfolders = listColorSubfolders(folder.folderPath);
+  const looseImageIndexes = discoverNumberedImageIndexes(folder.folderPath);
+  const storageBase = `${folder.gender}/${folder.accessory_type}/${folder.folder_index}`;
+
+  if (colorSubfolders.length > 0 && looseImageIndexes.length > 0) {
+    throw new Error(
+      `Mixed layout in ${folder.folderPath}: use color subfolders OR loose numbered images, not both`,
+    );
+  }
+
+  if (colorSubfolders.length > 0) {
+    const variants: VariantSource[] = colorSubfolders.map((color) => ({
+      color,
+      folderPath: join(folder.folderPath, color),
+      storagePrefix: `${storageBase}/${color}`,
+    }));
+
+    for (const variant of variants) {
+      assertVariantImages(variant.folderPath, variant.folderPath);
+    }
+
+    return {
+      variants,
+      defaultColor: colorSubfolders.length === 1 ? colorSubfolders[0] : "",
+      usesColorSubfolders: true,
+    };
+  }
+
+  if (looseImageIndexes.length === 0) {
+    throw new Error(`No images found anywhere in ${folder.folderPath}`);
+  }
+
+  assertVariantImages(folder.folderPath, folder.folderPath);
+
+  return {
+    variants: [
+      {
+        color: "default",
+        folderPath: folder.folderPath,
+        storagePrefix: storageBase,
+      },
+    ],
+    defaultColor: "default",
+    usesColorSubfolders: false,
+  };
+}
+
+function resolveDefaultColor(
+  folderPath: string,
+  variants: VariantSource[],
+  metadata: ParsedMetadata,
+  inferredDefault: string,
+): string {
+  const colors = variants.map((variant) => variant.color);
+
+  if (variants.length === 1) {
+    return variants[0].color;
+  }
+
+  const defaultColor = metadata.defaultColor ?? inferredDefault;
+
+  if (!defaultColor) {
+    throw new Error(
+      `Missing default color in ${folderPath}/metadata.txt for multi-variant product (${colors.join(", ")})`,
+    );
+  }
+
+  if (!colors.includes(defaultColor)) {
+    throw new Error(
+      `Default color "${defaultColor}" not found in ${folderPath} (available: ${colors.join(", ")})`,
+    );
+  }
+
+  return defaultColor;
 }
 
 function discoverProductFolders(): ProductFolder[] {
@@ -251,6 +384,104 @@ async function uploadImage(
   return data.publicUrl;
 }
 
+async function uploadVariantImages(
+  supabase: SupabaseClient,
+  variant: VariantSource,
+): Promise<string[]> {
+  const imageIndexes = discoverNumberedImageIndexes(variant.folderPath);
+  const images: string[] = [];
+
+  for (const index of imageIndexes) {
+    const localPath = join(variant.folderPath, `${index}.png`);
+    const publicUrl = await uploadImage(
+      supabase,
+      localPath,
+      `${variant.storagePrefix}/${index}.png`,
+    );
+    images.push(publicUrl);
+  }
+
+  return images;
+}
+
+function initialStockForVariant(
+  color: string,
+  metadata: ParsedMetadata,
+  folderPath: string,
+): number {
+  const stock = metadata.stockByColor.get(color);
+
+  if (stock === undefined) {
+    throw new Error(
+      `Missing stock for variant "${color}" in ${folderPath}/metadata.txt (use "stock ${color} <n>" or "stock default <n>")`,
+    );
+  }
+
+  return stock;
+}
+
+async function clearVariantDefaults(
+  supabase: SupabaseClient,
+  productId: string,
+  folderPath: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("product_variants")
+    .update({ is_default: false })
+    .eq("product_id", productId);
+
+  if (error) {
+    throw new Error(
+      `Failed to clear variant defaults for ${folderPath}: ${error.message}`,
+    );
+  }
+}
+
+async function removeStaleDefaultVariant(
+  supabase: SupabaseClient,
+  productId: string,
+  activeColors: Set<string>,
+  folderPath: string,
+): Promise<boolean> {
+  if (activeColors.has("default")) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .delete()
+    .eq("product_id", productId)
+    .eq("color", "default")
+    .select("id");
+
+  if (error) {
+    throw new Error(
+      `Failed to remove stale default variant for ${folderPath}: ${error.message}`,
+    );
+  }
+
+  return (data?.length ?? 0) > 0;
+}
+
+async function setDefaultVariant(
+  supabase: SupabaseClient,
+  productId: string,
+  defaultColor: string,
+  folderPath: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("product_variants")
+    .update({ is_default: true })
+    .eq("product_id", productId)
+    .eq("color", defaultColor);
+
+  if (error) {
+    throw new Error(
+      `Failed to set default variant "${defaultColor}" for ${folderPath}: ${error.message}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   loadEnvLocal();
 
@@ -276,30 +507,31 @@ async function main(): Promise<void> {
     throw new Error(`No product folders found under ${RAW_IMPORTS_DIR}`);
   }
 
-  let inserted = 0;
-  let updated = 0;
+  let productsInserted = 0;
+  let productsUpdated = 0;
+  let variantsInserted = 0;
+  let variantsUpdated = 0;
+  let variantsRemoved = 0;
 
   for (const folder of folders) {
-    const imageIndexes = assertProductFolder(folder.folderPath);
-
     const metadataPath = join(folder.folderPath, "metadata.txt");
     const metadata = parseMetadata(
       readFileSync(metadataPath, "utf8"),
       folder.folderPath,
     );
 
-    const storagePrefix = `${folder.gender}/${folder.accessory_type}/${folder.folder_index}`;
-    const images: string[] = [];
-
-    for (const index of imageIndexes) {
-      const localPath = join(folder.folderPath, `${index}.png`);
-      const publicUrl = await uploadImage(
-        supabase,
-        localPath,
-        `${storagePrefix}/${index}.png`,
-      );
-      images.push(publicUrl);
-    }
+    const {
+      variants,
+      defaultColor: inferredDefault,
+      usesColorSubfolders,
+    } = discoverVariantSources(folder);
+    const defaultColor = resolveDefaultColor(
+      folder.folderPath,
+      variants,
+      metadata,
+      inferredDefault,
+    );
+    const activeColors = new Set(variants.map((variant) => variant.color));
 
     const productRow = {
       gender: folder.gender,
@@ -311,54 +543,134 @@ async function main(): Promise<void> {
       properties: metadata.properties,
       description: metadata.description,
       price_fils: metadata.price_fils,
-      images,
     };
 
-    const { data: existing, error: existingError } = await supabase
+    const { data: existingProduct, error: existingProductError } = await supabase
       .from("products")
-      .select("id, stock")
+      .select("id")
       .eq("gender", folder.gender)
       .eq("accessory_type", folder.accessory_type)
       .eq("folder_index", folder.folder_index)
       .maybeSingle();
 
-    if (existingError) {
+    if (existingProductError) {
       throw new Error(
-        `Failed to check existing row for ${folder.folderPath}: ${existingError.message}`,
+        `Failed to check existing product for ${folder.folderPath}: ${existingProductError.message}`,
       );
     }
 
-    if (existing) {
+    let productId: string;
+
+    if (existingProduct) {
       const { error: updateError } = await supabase
         .from("products")
         .update(productRow)
-        .eq("id", existing.id);
+        .eq("id", existingProduct.id);
 
       if (updateError) {
-        throw new Error(`Failed to update ${folder.folderPath}: ${updateError.message}`);
+        throw new Error(`Failed to update product ${folder.folderPath}: ${updateError.message}`);
       }
 
-      updated += 1;
-      console.log(
-        `updated ${folder.folderPath} (stock preserved: ${existing.stock})`,
-      );
+      productId = existingProduct.id;
+      productsUpdated += 1;
+      console.log(`updated product ${folder.folderPath}`);
     } else {
-      const { error: insertError } = await supabase
+      const { data: insertedProduct, error: insertError } = await supabase
         .from("products")
-        .insert({ ...productRow, stock: metadata.stock });
+        .insert(productRow)
+        .select("id")
+        .single();
 
-      if (insertError) {
-        throw new Error(`Failed to insert ${folder.folderPath}: ${insertError.message}`);
+      if (insertError || !insertedProduct) {
+        throw new Error(`Failed to insert product ${folder.folderPath}: ${insertError?.message}`);
       }
 
-      inserted += 1;
-      console.log(
-        `inserted ${folder.folderPath} (stock set from metadata: ${metadata.stock})`,
-      );
+      productId = insertedProduct.id;
+      productsInserted += 1;
+      console.log(`inserted product ${folder.folderPath}`);
     }
+
+    await clearVariantDefaults(supabase, productId, folder.folderPath);
+
+    if (usesColorSubfolders) {
+      const removed = await removeStaleDefaultVariant(
+        supabase,
+        productId,
+        activeColors,
+        folder.folderPath,
+      );
+
+      if (removed) {
+        variantsRemoved += 1;
+        console.log(`  removed stale default variant (replaced by color subfolders)`);
+      }
+    }
+
+    for (const variant of variants) {
+      const images = await uploadVariantImages(supabase, variant);
+
+      const { data: existingVariant, error: existingVariantError } = await supabase
+        .from("product_variants")
+        .select("id, stock")
+        .eq("product_id", productId)
+        .eq("color", variant.color)
+        .maybeSingle();
+
+      if (existingVariantError) {
+        throw new Error(
+          `Failed to check variant "${variant.color}" for ${folder.folderPath}: ${existingVariantError.message}`,
+        );
+      }
+
+      const variantRow = {
+        product_id: productId,
+        color: variant.color,
+        images,
+        is_default: false,
+      };
+
+      if (existingVariant) {
+        const { error: updateError } = await supabase
+          .from("product_variants")
+          .update(variantRow)
+          .eq("id", existingVariant.id);
+
+        if (updateError) {
+          throw new Error(
+            `Failed to update variant "${variant.color}" for ${folder.folderPath}: ${updateError.message}`,
+          );
+        }
+
+        variantsUpdated += 1;
+        console.log(
+          `  updated variant ${variant.color} (stock preserved: ${existingVariant.stock})`,
+        );
+      } else {
+        const stock = initialStockForVariant(variant.color, metadata, folder.folderPath);
+        const { error: insertError } = await supabase
+          .from("product_variants")
+          .insert({ ...variantRow, stock });
+
+        if (insertError) {
+          throw new Error(
+            `Failed to insert variant "${variant.color}" for ${folder.folderPath}: ${insertError.message}`,
+          );
+        }
+
+        variantsInserted += 1;
+        console.log(
+          `  inserted variant ${variant.color} (stock set from metadata: ${stock})`,
+        );
+      }
+    }
+
+    await setDefaultVariant(supabase, productId, defaultColor, folder.folderPath);
+    console.log(`  set default variant: ${defaultColor}`);
   }
 
-  console.log(`done: ${inserted} inserted, ${updated} updated, ${folders.length} total`);
+  console.log(
+    `done: ${productsInserted} products inserted, ${productsUpdated} products updated, ${variantsInserted} variants inserted, ${variantsUpdated} variants updated, ${variantsRemoved} variants removed, ${folders.length} product folders total`,
+  );
 }
 
 main().catch((error: unknown) => {
