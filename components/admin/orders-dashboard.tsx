@@ -1,17 +1,23 @@
 import Link from "next/link";
 
-import { updateOrderStatus, updateProductStock } from "@/app/admin/actions";
+import {
+  setDefaultVariant,
+  updateOrderStatus,
+  updateVariantStock,
+} from "@/app/admin/actions";
 import {
   formatAmountAed,
   formatRelativeTime,
   formatShippingAddress,
+  sortAdminVariants,
   type OrderRecord,
-  type ProductStockRow,
+  type ProductInventoryRow,
+  type VariantStockRow,
 } from "@/lib/admin/orders";
 
 type OrdersDashboardProps = {
   orders: OrderRecord[];
-  products: ProductStockRow[];
+  products: ProductInventoryRow[];
 };
 
 function StatusActions({ order }: { order: OrderRecord }) {
@@ -36,16 +42,16 @@ function StatusActions({ order }: { order: OrderRecord }) {
   );
 }
 
-function StockEditor({ product }: { product: ProductStockRow }) {
+function VariantStockEditor({ variant }: { variant: VariantStockRow }) {
   return (
-    <form action={updateProductStock} className="flex items-center gap-2">
-      <input type="hidden" name="productId" value={product.id} />
+    <form action={updateVariantStock} className="flex items-center gap-2">
+      <input type="hidden" name="variantId" value={variant.id} />
       <input
         type="number"
         name="stock"
         min={0}
         step={1}
-        defaultValue={product.stock}
+        defaultValue={variant.stock}
         className="w-20 rounded-none border border-stone-200 bg-[#fdfbfc] px-2 py-1 text-xs lowercase tracking-[0.2em] text-stone-500"
       />
       <button
@@ -53,6 +59,28 @@ function StockEditor({ product }: { product: ProductStockRow }) {
         className="rounded-none border border-stone-200 px-2 py-1 text-xs lowercase tracking-[0.2em] transition-opacity duration-200 ease-out hover:opacity-70"
       >
         save
+      </button>
+    </form>
+  );
+}
+
+function DefaultVariantControl({ variant }: { variant: VariantStockRow }) {
+  if (variant.is_default) {
+    return (
+      <span className="text-xs lowercase tracking-[0.2em] text-stone-600">
+        default
+      </span>
+    );
+  }
+
+  return (
+    <form action={setDefaultVariant}>
+      <input type="hidden" name="variantId" value={variant.id} />
+      <button
+        type="submit"
+        className="rounded-none border border-stone-200 px-2 py-1 text-xs lowercase tracking-[0.2em] transition-opacity duration-200 ease-out hover:opacity-70"
+      >
+        set default
       </button>
     </form>
   );
@@ -75,26 +103,74 @@ export function OrdersDashboard({ orders, products }: OrdersDashboardProps) {
           inventory
         </h2>
         <div className="overflow-x-auto border border-stone-200">
-          <table className="w-full min-w-[640px] text-left text-xs lowercase tracking-[0.2em]">
+          <table className="w-full min-w-[800px] text-left text-xs lowercase tracking-[0.2em]">
             <thead className="border-b border-stone-200 text-stone-600">
               <tr>
                 <th className="px-4 py-3 font-normal">product</th>
                 <th className="px-4 py-3 font-normal">gender</th>
                 <th className="px-4 py-3 font-normal">type</th>
+                <th className="px-4 py-3 font-normal">color</th>
                 <th className="px-4 py-3 font-normal">stock</th>
+                <th className="px-4 py-3 font-normal">default</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
-                <tr key={product.id} className="border-b border-stone-200 last:border-b-0">
-                  <td className="px-4 py-3">{product.name}</td>
-                  <td className="px-4 py-3">{product.gender}</td>
-                  <td className="px-4 py-3">{product.accessory_type}</td>
-                  <td className="px-4 py-3">
-                    <StockEditor product={product} />
-                  </td>
-                </tr>
-              ))}
+              {products.map((product) => {
+                const variants = sortAdminVariants(product.variants);
+
+                if (variants.length === 0) {
+                  return (
+                    <tr
+                      key={product.id}
+                      className="border-b border-stone-200 last:border-b-0"
+                    >
+                      <td className="px-4 py-3">{product.name}</td>
+                      <td className="px-4 py-3">{product.gender}</td>
+                      <td className="px-4 py-3">{product.accessory_type}</td>
+                      <td className="px-4 py-3 opacity-60" colSpan={3}>
+                        no variants
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return variants.map((variant, index) => (
+                  <tr
+                    key={variant.id}
+                    className="border-b border-stone-200 last:border-b-0"
+                  >
+                    {index === 0 ? (
+                      <>
+                        <td
+                          className="px-4 py-3 align-top"
+                          rowSpan={variants.length}
+                        >
+                          {product.name}
+                        </td>
+                        <td
+                          className="px-4 py-3 align-top"
+                          rowSpan={variants.length}
+                        >
+                          {product.gender}
+                        </td>
+                        <td
+                          className="px-4 py-3 align-top"
+                          rowSpan={variants.length}
+                        >
+                          {product.accessory_type}
+                        </td>
+                      </>
+                    ) : null}
+                    <td className="px-4 py-3">{variant.color}</td>
+                    <td className="px-4 py-3">
+                      <VariantStockEditor variant={variant} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <DefaultVariantControl variant={variant} />
+                    </td>
+                  </tr>
+                ));
+              })}
             </tbody>
           </table>
         </div>

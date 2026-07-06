@@ -34,14 +34,14 @@ export async function updateOrderStatus(formData: FormData): Promise<void> {
   revalidatePath("/admin");
 }
 
-export async function updateProductStock(formData: FormData): Promise<void> {
+export async function updateVariantStock(formData: FormData): Promise<void> {
   await requireAdmin();
 
-  const productId = formData.get("productId");
+  const variantId = formData.get("variantId");
   const stockRaw = formData.get("stock");
 
-  if (typeof productId !== "string" || !productId) {
-    throw new Error("Invalid product id");
+  if (typeof variantId !== "string" || !variantId) {
+    throw new Error("Invalid variant id");
   }
 
   const stock = Number.parseInt(String(stockRaw ?? ""), 10);
@@ -51,12 +51,54 @@ export async function updateProductStock(formData: FormData): Promise<void> {
 
   const supabase = createAdminClient();
   const { error } = await supabase
-    .from("products")
+    .from("product_variants")
     .update({ stock })
-    .eq("id", productId);
+    .eq("id", variantId);
 
   if (error) {
-    throw new Error(`Failed to update stock: ${error.message}`);
+    throw new Error(`Failed to update variant stock: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+}
+
+export async function setDefaultVariant(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const variantId = formData.get("variantId");
+
+  if (typeof variantId !== "string" || !variantId) {
+    throw new Error("Invalid variant id");
+  }
+
+  const supabase = createAdminClient();
+
+  const { data: variant, error: variantError } = await supabase
+    .from("product_variants")
+    .select("id, product_id")
+    .eq("id", variantId)
+    .maybeSingle();
+
+  if (variantError || !variant) {
+    throw new Error("Variant not found");
+  }
+
+  const { error: clearError } = await supabase
+    .from("product_variants")
+    .update({ is_default: false })
+    .eq("product_id", variant.product_id);
+
+  if (clearError) {
+    throw new Error(`Failed to clear default variants: ${clearError.message}`);
+  }
+
+  const { error: setError } = await supabase
+    .from("product_variants")
+    .update({ is_default: true })
+    .eq("id", variantId);
+
+  if (setError) {
+    throw new Error(`Failed to set default variant: ${setError.message}`);
   }
 
   revalidatePath("/admin");

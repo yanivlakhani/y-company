@@ -29,14 +29,36 @@ export type OrderRecord = {
   created_at: string;
 };
 
-export type ProductStockRow = {
+export type VariantStockRow = {
+  id: string;
+  color: string;
+  stock: number;
+  is_default: boolean;
+};
+
+export type ProductInventoryRow = {
   id: string;
   name: string;
   gender: string;
   accessory_type: string;
   folder_index: number;
-  stock: number;
+  variants: VariantStockRow[];
 };
+
+export function sortAdminVariants(
+  variants: VariantStockRow[],
+): VariantStockRow[] {
+  return [...variants].sort((a, b) => {
+    if (a.is_default !== b.is_default) {
+      return a.is_default ? -1 : 1;
+    }
+
+    return a.color.localeCompare(b.color);
+  });
+}
+
+/** @deprecated Use ProductInventoryRow */
+export type ProductStockRow = ProductInventoryRow;
 
 export function formatRelativeTime(isoDate: string): string {
   const diffMs = Date.now() - new Date(isoDate).getTime();

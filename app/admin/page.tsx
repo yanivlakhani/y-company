@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { OrdersDashboard } from "@/components/admin/orders-dashboard";
 import { requireAdmin } from "@/lib/admin-auth";
-import type { OrderRecord, ProductStockRow } from "@/lib/admin/orders";
+import type { OrderRecord, ProductInventoryRow } from "@/lib/admin/orders";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,9 @@ export default async function AdminPage() {
       supabase.from("orders").select("*").order("created_at", { ascending: false }),
       supabase
         .from("products")
-        .select("id, name, gender, accessory_type, folder_index, stock")
+        .select(
+          "id, name, gender, accessory_type, folder_index, product_variants (id, color, stock, is_default)",
+        )
         .order("gender")
         .order("accessory_type")
         .order("folder_index"),
@@ -30,6 +32,26 @@ export default async function AdminPage() {
   if (productsError) {
     throw new Error(`Failed to load inventory: ${productsError.message}`);
   }
+
+  const inventory: ProductInventoryRow[] = (products ?? []).map((product) => {
+    const row = product as {
+      id: string;
+      name: string;
+      gender: string;
+      accessory_type: string;
+      folder_index: number;
+      product_variants: ProductInventoryRow["variants"] | null;
+    };
+
+    return {
+      id: row.id,
+      name: row.name,
+      gender: row.gender,
+      accessory_type: row.accessory_type,
+      folder_index: row.folder_index,
+      variants: row.product_variants ?? [],
+    };
+  });
 
   return (
     <div className="min-h-[100dvh] bg-[#fdfbfc] text-stone-500">
@@ -44,7 +66,7 @@ export default async function AdminPage() {
 
       <OrdersDashboard
         orders={(orders ?? []) as OrderRecord[]}
-        products={(products ?? []) as ProductStockRow[]}
+        products={inventory}
       />
     </div>
   );
