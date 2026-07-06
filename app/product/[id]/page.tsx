@@ -8,6 +8,8 @@ type ProductPageProps = {
   params: Promise<{ id: string }>;
 };
 
+export const revalidate = 30;
+
 export async function generateStaticParams() {
   const [men, women] = await Promise.all([
     getProductsByGender("men"),
