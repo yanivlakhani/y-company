@@ -1,0 +1,6 @@
+name silver box pendant chain
+material 316l stainless steel
+properties brushed finish
+description sleek silver box chain with engraved rectangular pendant
+price 79
+stock 12

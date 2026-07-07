@@ -1,0 +1,6 @@
+name black beaded chain
+material 316l stainless steel
+properties brushed finish
+description classic black oxidized beaded chain necklace
+price 79
+stock 12

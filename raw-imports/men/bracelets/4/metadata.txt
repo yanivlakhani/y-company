@@ -1,0 +1,6 @@
+name turquoise chakra bracelet
+material turquoise howlite beads, chakra colored glass beads, silver tone metal spacers
+properties
+description a turquoise crackle bead bracelet with multicolored chakra stones and silver accents for good luck and protection
+price 49
+stock 22

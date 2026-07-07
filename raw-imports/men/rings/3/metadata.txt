@@ -1,0 +1,6 @@
+name two tone geometric ring
+material 316l stainless steel
+properties brushed finish
+description a striking two-tone ring with interlocking gold and silver geometric links
+price 29
+stock 12

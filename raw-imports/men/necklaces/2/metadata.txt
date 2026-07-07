@@ -1,0 +1,6 @@
+name tiger eye sphere necklace
+material 316l stainless steel, tiger eye
+properties brushed finish
+description elegant silver chain with polished brown tiger eye sphere pendant
+price 79
+stock 12

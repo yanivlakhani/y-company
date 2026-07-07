@@ -11,10 +11,16 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const RAW_IMPORTS_DIR = join(process.cwd(), "raw-imports");
 const BUCKET = "products";
 const BASELINE_PROPERTIES = ["waterproof", "sweat-resistant"] as const;
-const NUMBERED_IMAGE_PATTERN = /^(\d+)\.png$/i;
+const NUMBERED_IMAGE_PATTERN = /^(\d+)\.(png|jpe?g|webp)$/i;
 const VALID_GENDERS = new Set(["men", "women"]);
 
 type Gender = "men" | "women";
+
+type NumberedImageFile = {
+  index: number;
+  fileName: string;
+  extension: string;
+};
 
 type ParsedMetadata = {
   name: string;
@@ -182,19 +188,58 @@ function toSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function discoverNumberedImageIndexes(folderPath: string): number[] {
-  const indexes = readdirSync(folderPath)
-    .map((fileName) => {
-      const match = fileName.match(NUMBERED_IMAGE_PATTERN);
-      if (!match) {
-        return null;
-      }
+function parseNumberedImageFile(fileName: string): NumberedImageFile | null {
+  const match = fileName.match(NUMBERED_IMAGE_PATTERN);
+  if (!match) {
+    return null;
+  }
 
-      return Number.parseInt(match[1], 10);
-    })
-    .filter((index): index is number => index !== null && !Number.isNaN(index));
+  const index = Number.parseInt(match[1], 10);
+  if (Number.isNaN(index)) {
+    return null;
+  }
 
-  return [...new Set(indexes)].sort((a, b) => a - b);
+  return {
+    index,
+    fileName,
+    extension: match[2].toLowerCase(),
+  };
+}
+
+function discoverNumberedImageFiles(folderPath: string): NumberedImageFile[] {
+  const byIndex = new Map<number, NumberedImageFile>();
+
+  for (const fileName of readdirSync(folderPath)) {
+    const parsed = parseNumberedImageFile(fileName);
+    if (!parsed) {
+      continue;
+    }
+
+    const existing = byIndex.get(parsed.index);
+    if (existing) {
+      throw new Error(
+        `Multiple numbered images for index ${parsed.index} in ${folderPath}: ${existing.fileName} and ${parsed.fileName}`,
+      );
+    }
+
+    byIndex.set(parsed.index, parsed);
+  }
+
+  return [...byIndex.values()].sort((a, b) => a.index - b.index);
+}
+
+function contentTypeForExtension(extension: string): string {
+  switch (extension) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    default:
+      throw new Error(`Unsupported image extension: ${extension}`);
+  }
 }
 
 function listColorSubfolders(folderPath: string): string[] {
@@ -204,21 +249,21 @@ function listColorSubfolders(folderPath: string): string[] {
     .sort((a, b) => a.localeCompare(b));
 }
 
-function assertVariantImages(folderPath: string, label: string): number[] {
-  const imageIndexes = discoverNumberedImageIndexes(folderPath);
+function assertVariantImages(folderPath: string, label: string): NumberedImageFile[] {
+  const imageFiles = discoverNumberedImageFiles(folderPath);
 
-  if (imageIndexes.length === 0) {
+  if (imageFiles.length === 0) {
     throw new Error(`No numbered image files found in ${label}`);
   }
 
-  for (const index of imageIndexes) {
-    const imagePath = join(folderPath, `${index}.png`);
+  for (const image of imageFiles) {
+    const imagePath = join(folderPath, image.fileName);
     if (!existsSync(imagePath)) {
       throw new Error(`Missing required file: ${imagePath}`);
     }
   }
 
-  return imageIndexes;
+  return imageFiles;
 }
 
 function assertMetadataExists(folderPath: string): void {
@@ -234,10 +279,10 @@ function discoverVariantSources(
   assertMetadataExists(folder.folderPath);
 
   const colorSubfolders = listColorSubfolders(folder.folderPath);
-  const looseImageIndexes = discoverNumberedImageIndexes(folder.folderPath);
+  const looseImageFiles = discoverNumberedImageFiles(folder.folderPath);
   const storageBase = `${folder.gender}/${folder.accessory_type}/${folder.folder_index}`;
 
-  if (colorSubfolders.length > 0 && looseImageIndexes.length > 0) {
+  if (colorSubfolders.length > 0 && looseImageFiles.length > 0) {
     throw new Error(
       `Mixed layout in ${folder.folderPath}: use color subfolders OR loose numbered images, not both`,
     );
@@ -261,7 +306,7 @@ function discoverVariantSources(
     };
   }
 
-  if (looseImageIndexes.length === 0) {
+  if (looseImageFiles.length === 0) {
     throw new Error(`No images found anywhere in ${folder.folderPath}`);
   }
 
@@ -369,11 +414,12 @@ async function uploadImage(
   supabase: SupabaseClient,
   localPath: string,
   storagePath: string,
+  contentType: string,
 ): Promise<string> {
   const fileBuffer = readFileSync(localPath);
   const { error } = await supabase.storage.from(BUCKET).upload(storagePath, fileBuffer, {
     upsert: true,
-    contentType: "image/png",
+    contentType,
   });
 
   if (error) {
@@ -388,15 +434,17 @@ async function uploadVariantImages(
   supabase: SupabaseClient,
   variant: VariantSource,
 ): Promise<string[]> {
-  const imageIndexes = discoverNumberedImageIndexes(variant.folderPath);
+  const imageFiles = discoverNumberedImageFiles(variant.folderPath);
   const images: string[] = [];
 
-  for (const index of imageIndexes) {
-    const localPath = join(variant.folderPath, `${index}.png`);
+  for (const image of imageFiles) {
+    const localPath = join(variant.folderPath, image.fileName);
+    const storagePath = `${variant.storagePrefix}/${image.index}.${image.extension}`;
     const publicUrl = await uploadImage(
       supabase,
       localPath,
-      `${variant.storagePrefix}/${index}.png`,
+      storagePath,
+      contentTypeForExtension(image.extension),
     );
     images.push(publicUrl);
   }

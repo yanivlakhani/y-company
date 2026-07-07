@@ -1,0 +1,6 @@
+name gold black contrast ring
+material 316l stainless steel
+properties brushed finish
+description a sleek two-tone band with a polished gold center and contrasting black edges
+price 29
+stock 12

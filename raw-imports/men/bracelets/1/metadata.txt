@@ -1,9 +1,6 @@
-name matte black bracelet
-material 316l stainless steel and matte volcanic obsidian
+name evil eye bracelet
+material glass evil eye beads, gold tone metal accents and spacers
 properties custom steel clasp
-description a heavy industrial link stack engineered for daily wear
-price 129
-stock 45
-default black
-stock black 30
-stock blue 25
+description a vibrant blue evil eye bead bracelet with protective symbolism and gold-tone accents
+price 49
+stock 12

@@ -1,0 +1,6 @@
+name black chain bracelet
+material alloy metal with black glossy finish
+properties
+description a sleek glossy black chain-link bracelet with a bold rounded link designdesign
+price 49
+stock 22

@@ -1,6 +1,6 @@
-name brushed steel signet
+name roman steel signet
 material 316l stainless steel
 properties brushed finish
-description a flat signet band with a brushed steel finish
-price 89
-stock 30
+description a flat signet band with a brushed steel finish and roman numeral inscriptions
+price 29
+stock 12

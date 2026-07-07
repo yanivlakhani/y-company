@@ -1,0 +1,6 @@
+name abstract key pattern ring
+material 316l stainless steel
+properties brushed finish
+description a bold silver and black band featuring a repeating greek key pattern
+price 29
+stock 12

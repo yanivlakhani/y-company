@@ -1,6 +1,6 @@
-name chain link cuff
-material 316l stainless steel
+name blue iridescent chain bracelet
+material alloy metal with blue iridescent coating
 properties magnetic clasp
-description a rigid cuff built from interlocked steel segments
-price 149
+description a chunky metallic blue iridescent chain-link bracelet with a glossy twisted-link design
+price 49
 stock 22

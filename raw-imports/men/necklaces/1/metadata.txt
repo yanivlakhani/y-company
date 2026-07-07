@@ -1,0 +1,6 @@
+name silver snake figure necklace
+material 316l stainless steel
+properties brushed finish
+description bold silver snake chain featuring intricate humanoid pendant
+price 79
+stock 12
