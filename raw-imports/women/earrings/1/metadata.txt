@@ -1,0 +1,6 @@
+name heart earring
+material silver-plated earring
+properties
+description a delicate heart-shaped silver earring with small colorful rhinestones
+price 29
+stock 12

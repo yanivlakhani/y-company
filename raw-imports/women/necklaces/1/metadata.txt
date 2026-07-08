@@ -1,0 +1,6 @@
+name celestial heart moon necklace
+material gold-plated chain, cubic zirconia stones
+properties adjustable tie
+description a delicate gold necklace featuring a sparkling crescent moon pendant with a central crystal and dangling heart charm
+price 79
+stock 12

@@ -1,0 +1,6 @@
+name butterfly necklace
+material silver-plated chain, silver-plated charm
+properties adjustable tie
+description a delicate silver necklace featuring a cute butterfly charm
+price 79
+stock 12

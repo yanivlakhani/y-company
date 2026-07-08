@@ -1,0 +1,6 @@
+name angel heart necklace
+material gold-plated chain, crystal center piece
+properties adjustable tie
+description a delicate gold necklace featuring a cute heart and angel wings pendant
+price 79
+stock 12

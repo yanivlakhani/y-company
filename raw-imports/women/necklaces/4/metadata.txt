@@ -1,0 +1,6 @@
+name emerald halo pendant necklace
+material gold-plated chain, emerald glass gemstone
+properties adjustable tie
+description an elegant gold necklace with a vibrant square emerald stone surrounded by a sparkling cubic zirconia halo and topped with a small heart accent
+price 79
+stock 12

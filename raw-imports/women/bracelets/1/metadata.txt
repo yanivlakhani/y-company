@@ -1,6 +1,6 @@
-name pearl thread bracelet
-material freshwater pearl and silk thread
+name evil eye silver charms
+material silver-plated zinc alloy, glass beads
 properties adjustable tie
-description a single pearl suspended on a silk thread band
-price 69
-stock 50
+description silver-plated charm bracelet with blue evil eye, crystal accents, and protective symbols
+price 59
+stock 12

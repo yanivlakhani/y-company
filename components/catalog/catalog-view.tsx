@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import {
   accessorySectionId,
@@ -17,12 +17,15 @@ import {
   type ProductPublic,
 } from "@/lib/types/product";
 
-import { PageNav } from "@/components/page-nav";
-
 type CatalogViewProps = {
   gender: Gender;
   products: ProductPublic[];
 };
+
+const catalogNavTheme = {
+  men: { wordmark: "text-zinc-400", back: "text-zinc-500" },
+  women: { wordmark: "text-stone-500", back: "text-stone-400" },
+} as const;
 
 function useMinMd() {
   const [minMd, setMinMd] = useState(false);
@@ -127,21 +130,57 @@ function scrollToAccessorySection(accessoryType: string): void {
   section?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-export function CatalogView({ gender, products }: CatalogViewProps) {
-  const minMd = useMinMd();
-  const theme = catalogTheme(gender);
-  const groups = groupProductsByAccessoryType(products);
+type CatalogStickyHeaderProps = {
+  gender: Gender;
+  groups: ReturnType<typeof groupProductsByAccessoryType>;
+  theme: ReturnType<typeof catalogTheme>;
+};
+
+function CatalogStickyHeader({ gender, groups, theme }: CatalogStickyHeaderProps) {
+  const navTheme = catalogNavTheme[gender];
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) {
+      return;
+    }
+
+    const syncHeight = () => setHeaderHeight(header.offsetHeight);
+    syncHeight();
+
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [groups.length]);
 
   return (
     <>
-      <PageNav variant={gender} backHref="/" />
+      <header
+        ref={headerRef}
+        className={`fixed inset-x-0 top-0 z-50 border-b ${theme.border} ${theme.surface}`}
+      >
+        <div className="relative">
+          <div className="relative flex items-center justify-center px-6 pb-4 pt-8 md:px-10 md:pt-10">
+            <Link
+              href="/"
+              className={`absolute left-6 top-8 text-xs lowercase tracking-[0.3em] transition-opacity duration-200 ease-out hover:opacity-70 md:left-10 md:top-10 ${navTheme.back}`}
+            >
+              ← back
+            </Link>
+            <Link
+              href="/"
+              className={`text-xs lowercase tracking-[0.3em] transition-opacity duration-200 ease-out hover:opacity-70 ${navTheme.wordmark}`}
+            >
+              y company
+            </Link>
+          </div>
 
-      <div className={`min-h-[100dvh] ${theme.page}`}>
-        <div className="px-6 pb-10 pt-16 md:px-10 md:pb-12 md:pt-20">
           {groups.length > 0 ? (
             <nav
               aria-label="shop by category"
-              className={`sticky top-12 z-20 -mx-6 mb-8 flex flex-nowrap gap-3 overflow-x-auto px-6 pb-4 pt-2 md:top-14 md:-mx-10 md:flex-wrap md:overflow-visible md:px-10 ${theme.surface} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+              className="flex flex-nowrap gap-3 overflow-x-auto px-6 pb-5 md:flex-wrap md:overflow-visible md:px-10 md:pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {groups.map(({ accessoryType }) => (
                 <button
@@ -155,32 +194,48 @@ export function CatalogView({ gender, products }: CatalogViewProps) {
               ))}
             </nav>
           ) : null}
-
-          {groups.map(({ accessoryType, products: typeProducts }) => (
-            <section
-              key={accessoryType}
-              id={accessorySectionId(accessoryType)}
-              className="mb-12 scroll-mt-28 last:mb-0 md:scroll-mt-32"
-            >
-              <h2
-                className={`mb-6 border-b pb-3 text-xs lowercase tracking-[0.3em] ${theme.border} ${theme.heading}`}
-              >
-                {accessoryType}
-              </h2>
-              <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
-                {typeProducts.map((product) => (
-                  <CatalogProductCard
-                    key={product.id}
-                    product={product}
-                    minMd={minMd}
-                    theme={theme}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
         </div>
-      </div>
+      </header>
+
+      <div aria-hidden style={{ height: headerHeight }} />
     </>
+  );
+}
+
+export function CatalogView({ gender, products }: CatalogViewProps) {
+  const minMd = useMinMd();
+  const theme = catalogTheme(gender);
+  const groups = groupProductsByAccessoryType(products);
+
+  return (
+    <div className={`min-h-[100dvh] ${theme.page}`}>
+      <CatalogStickyHeader gender={gender} groups={groups} theme={theme} />
+
+      <div className="relative z-0 px-6 pb-10 pt-8 md:px-10 md:pb-12 md:pt-10">
+        {groups.map(({ accessoryType, products: typeProducts }) => (
+          <section
+            key={accessoryType}
+            id={accessorySectionId(accessoryType)}
+            className="mb-12 scroll-mt-36 last:mb-0 md:scroll-mt-40"
+          >
+            <h2
+              className={`mb-6 border-b pb-3 text-xs lowercase tracking-[0.3em] ${theme.border} ${theme.heading}`}
+            >
+              {accessoryType}
+            </h2>
+            <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+              {typeProducts.map((product) => (
+                <CatalogProductCard
+                  key={product.id}
+                  product={product}
+                  minMd={minMd}
+                  theme={theme}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }
